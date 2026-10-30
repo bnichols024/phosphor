@@ -215,6 +215,10 @@ function connectEvents() {
     clearTimeout(artTimer);
     artTimer = setTimeout(applyArt, 900);
   });
+  es.addEventListener("info", (e) => {
+    const { id } = JSON.parse(e.data);
+    if (location.pathname === `/game/${id}` && !sheetOpen()) render(scrollY);
+  });
   es.addEventListener("emulators", (e) => {
     const s = JSON.parse(e.data);
     window.dispatchEvent(new CustomEvent("phosphor:emulators", { detail: s }));

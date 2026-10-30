@@ -31,7 +31,8 @@ preferred region, shelves (collections), play-time stats and streaks, display fi
 smooth, CRT, curved CRT, handheld LCD), fast forward, rewind, 8 save slots with screenshots, cloud
 save history with restore, drag-and-drop uploads, "Surprise me", and an ambient glow that takes the
 colours of whatever you're looking at, ROM patches applied automatically, video clips, kid mode with
-a parent PIN, and an attract-mode screensaver.
+a parent PIN, an attract-mode screensaver, game descriptions (Wikipedia, or ScreenScraper with ratings,
+videos and manuals), and RetroAchievements progress for every player.
 
 ## Consoles
 

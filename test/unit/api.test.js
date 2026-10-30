@@ -12,6 +12,7 @@ before(async () => {
   root = tmpdir("phosphor-api-");
   // Offline: point art lookups at a closed port so tests never touch the network.
   process.env.PHOSPHOR_THUMBS = "http://127.0.0.1:9";
+  process.env.PHOSPHOR_WIKIPEDIA_URL = "http://127.0.0.1:9";
   app = await start({ root, port: 0, host: "127.0.0.1", scan: false, watch: false });
   base = `http://127.0.0.1:${app.port}`;
 });

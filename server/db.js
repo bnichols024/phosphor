@@ -92,6 +92,10 @@ export function openDb(file) {
   const db = new DatabaseSync(file);
   db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = OFF;");
   db.exec(SCHEMA);
+  // Columns added after the first release (ALTER is a no-op error when they already exist).
+  for (const col of ["description TEXT", "desc_source TEXT", "desc_url TEXT", "rating REAL", "video_url TEXT", "manual_url TEXT", "info_checked INTEGER NOT NULL DEFAULT 0", "ra_hash TEXT"]) {
+    try { db.exec(`ALTER TABLE games ADD COLUMN ${col}`); } catch { /* already there */ }
+  }
   const stmtCache = new Map();
   const prep = (sql) => {
     let s = stmtCache.get(sql);

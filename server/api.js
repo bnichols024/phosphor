@@ -12,7 +12,7 @@ const COLORS = ["#7c5cff", "#ff5c8a", "#22c55e", "#f59e0b", "#06b6d4", "#ef4444"
 const SAVE_HISTORY = 8;
 
 export function buildApi(ctx) {
-  const { db, library, media, emulators, bus, paths, version, freeGames } = ctx;
+  const { db, library, media, emulators, bus, paths, version, freeGames, info, achievements } = ctx;
   const r = new Router();
 
   // ---- helpers ----
@@ -193,6 +193,7 @@ export function buildApi(ctx) {
   r.get("/api/games/:id", (req, res, { id }) => {
     const profile = profileOf(req);
     const g = gameOr404(id);
+    if (!g.info_checked) info.enqueue(g.id);
     const play = db.get("SELECT * FROM plays WHERE profile_id = ? AND game_id = ?", profile.id, g.id);
     const states = db.all("SELECT slot, size, created_at, core FROM states WHERE profile_id = ? AND game_id = ? ORDER BY slot", profile.id, g.id)
       .map((s) => ({ slot: s.slot, size: s.size, createdAt: s.created_at, thumb: `/api/games/${g.id}/states/${s.slot}/thumb?profile=${profile.id}&t=${s.created_at}` }));
@@ -206,10 +207,80 @@ export function buildApi(ctx) {
       ...gameRow(g, play),
       dbName: g.db_name, tags: JSON.parse(g.tags || "[]"), developer: g.developer, publisher: g.publisher,
       patch: (() => { const p = findPatch(library.absPath(g.path)); return p ? path.basename(p) : null; })(),
+      description: g.description, descSource: g.desc_source, descUrl: g.desc_url, rating: g.rating,
+      video: g.video_url ? `/api/games/${g.id}/video` : null, manual: g.manual_url ? `/api/games/${g.id}/manual` : null,
+      infoChecked: !!g.info_checked,
       file: path.basename(g.path), folder: path.dirname(g.path), size: g.size, crc: g.crc, fileCount: files.length,
       playCount: play?.count || 0, states, save: save ? { size: save.size, updatedAt: save.updated_at } : null,
       variants, collections, system: g.system, systemInfo: publicSystem(BY_ID[g.system]),
     });
+  });
+
+  // ---- descriptions, videos, manuals ----
+  r.get("/api/games/:id/video", async (req, res, { id }) => {
+    const g = gameOr404(id);
+    const file = await info.videoFile(g).catch(() => null);
+    if (!file) throw new HttpError(404, "No video for this game.");
+    sendFile(req, res, file, { type: "video/mp4", immutable: true });
+  });
+  r.get("/api/games/:id/manual", async (req, res, { id }) => {
+    const g = gameOr404(id);
+    if (!g.manual_url) throw new HttpError(404, "No manual for this game.");
+    const up = await fetch(g.manual_url, { signal: AbortSignal.timeout(60000) }).catch(() => null);
+    if (!up?.ok) throw new HttpError(502, "Couldn't fetch the manual.");
+    res.writeHead(200, { "content-type": up.headers.get("content-type") || "application/pdf", "cache-control": "public, max-age=86400" });
+    res.end(Buffer.from(await up.arrayBuffer()));
+  });
+  r.post("/api/games/:id/refetch-info", (req, res, { id }) => {
+    const g = gameOr404(id);
+    db.run("UPDATE games SET info_checked = 0 WHERE id = ?", g.id);
+    info.enqueue(g.id);
+    json(res, 202, { ok: true });
+  });
+
+  // ---- RetroAchievements (each player links their own account) ----
+  r.get("/api/games/:id/achievements", async (req, res, { id }) => {
+    const profile = profileOf(req);
+    const g = gameOr404(id);
+    try { json(res, 200, await achievements.forGame(profile.id, g)); }
+    catch (e) { json(res, 200, { connected: true, error: e.message }); }
+  });
+  r.get("/api/retroachievements", (req, res) => {
+    const a = achievements.account(profileOf(req).id);
+    json(res, 200, a ? { user: a.user, avatar: a.avatar || null } : null);
+  });
+  r.put("/api/retroachievements", async (req, res) => {
+    const profile = profileOf(req);
+    const { user, key } = await readJson(req);
+    if (!user || !key) throw new HttpError(400, "Enter your RetroAchievements username and Web API key.");
+    let acct;
+    try { acct = await achievements.verify(String(user).trim(), String(key).trim()); } catch (e) { throw new HttpError(e.status === 401 ? 400 : 502, e.message); }
+    achievements.setAccount(profile.id, { user: acct.user, key: String(key).trim(), avatar: acct.avatar });
+    json(res, 200, { user: acct.user, avatar: acct.avatar, points: acct.points });
+  });
+  r.delete("/api/retroachievements", (req, res) => { achievements.setAccount(profileOf(req).id, null); json(res, 200, { ok: true }); });
+
+  // ---- ScreenScraper (descriptions, ratings, videos, manuals) ----
+  r.get("/api/screenscraper", (req, res) => {
+    const c = info.credentials();
+    json(res, 200, { ready: info.screenscraperReady(), builtIn: !!process.env.PHOSPHOR_SS_DEVID, user: c.user || null, hasDev: !!(c.devid && c.devpassword) });
+  });
+  r.put("/api/screenscraper", async (req, res) => {
+    const b = await readJson(req);
+    const prev = db.getSetting("screenscraper", {}) || {};
+    const next = { ...prev };
+    for (const k of ["devid", "devpassword", "user", "password"]) if (k in b) next[k] = String(b[k] || "").trim();
+    db.setSetting("screenscraper", next);
+    // Check the login works before re-scanning everything.
+    if (info.screenscraperReady()) {
+      try {
+        const r2 = await fetch(`${process.env.PHOSPHOR_SCREENSCRAPER_URL || "https://api.screenscraper.fr/api2"}/ssuserInfos.php?${info.ssParams()}`, { signal: AbortSignal.timeout(20000) });
+        const t = await r2.text();
+        if (!r2.ok || !t.trim().startsWith("{")) { db.setSetting("screenscraper", prev); throw new HttpError(400, `ScreenScraper said: ${t.slice(0, 140).trim() || r2.status}`); }
+      } catch (e) { if (e instanceof HttpError) throw e; db.setSetting("screenscraper", prev); throw new HttpError(502, "Couldn't reach ScreenScraper."); }
+      info.refetchAll();
+    }
+    json(res, 200, { ready: info.screenscraperReady() });
   });
 
   r.patch("/api/games/:id", async (req, res, { id }) => {
@@ -676,7 +747,7 @@ export function buildApi(ctx) {
     res.write(`retry: 3000\n\n`);
     const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     const handlers = {};
-    for (const ev of ["library", "emulators", "game", "art", "played", "upload"]) {
+    for (const ev of ["library", "emulators", "game", "art", "played", "upload", "info"]) {
       handlers[ev] = (d) => send(ev, d);
       bus.on(ev, handlers[ev]);
     }

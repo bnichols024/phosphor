@@ -24,7 +24,7 @@ Legend: ✅ has it · ⭐ has it and goes further · ❌ doesn't · — not appl
 | Upload from the browser | — | ❌ | ✅ | — | — | web manager | ✅ drag and drop files or whole folders onto the window |
 | Game identification | CRC scan | ❌ | hash + scrapers | scrapers | scrapers | scrapers | ✅ No-Intro/Redump/FBNeo checksums, disc serials, file names (offline, no account) |
 | Box art, snaps, title screens | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ automatic, no account |
-| Descriptions, videos, manuals | ❌ | ❌ | ✅ (API keys) | ✅ | ✅ | ✅ | ❌ no free source without API keys |
+| Descriptions, videos, manuals | ❌ | ❌ | ✅ (API keys) | ✅ | ✅ | ✅ | ✅ descriptions free from Wikipedia (tested on real titles); ScreenScraper adds ratings, gameplay videos, manuals (tested against a mock) |
 | Region variants collapsed | ❌ | ❌ | partial | ✅ | ❌ | ❌ | ✅ pick USA/Europe/Japan first |
 | Multi-disc games | write .m3u | ❌ | ✅ | ✅ | write .m3u | write .m3u | ⭐ grouped automatically (tested), swap disc from the menu |
 | ROM patches (translations, hacks) | ✅ softpatch | ❌ | ❌ | ❌ | via RetroArch | via RetroArch | ⭐ drop the .ips/.bps/.ups anywhere; it finds its game and applies on load (tested) |
@@ -48,7 +48,7 @@ Legend: ✅ has it · ⭐ has it and goes further · ❌ doesn't · — not appl
 | Phone as controller | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ⭐ scan a QR code, up to 4 phones, per-console layouts (tested) |
 | Touch controls on phone | ✅ overlays | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Online multiplayer (netplay) | ✅ | experimental | ❌ | via RetroArch | via RetroArch | ✅ | ❌ the web engine's netplay is still experimental |
-| RetroAchievements | ✅ | ❌ | ✅ (display) | ✅ | ✅ | ✅ | ❌ the web engine can't run achievement checks yet |
+| RetroAchievements | ✅ | ❌ | ✅ (display) | ✅ | ✅ | ✅ | partial: each player links their account and sees every game's achievements and progress (tested against a mock); earning needs an emulator RetroAchievements has approved |
 | Run-ahead (input lag) | ✅ | ❌ | ❌ | via emulator | via RetroArch | ✅ | ❌ |
 | Bezels / overlays | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ |
 
@@ -66,10 +66,12 @@ Legend: ✅ has it · ⭐ has it and goes further · ❌ doesn't · — not appl
 
 ## Known gaps, honestly
 
-- **Netplay and RetroAchievements**: both need support inside the browser emulator engine
-  (EmulatorJS), which doesn't have it in a usable form yet. Phone controllers cover local multiplayer.
-- **Descriptions, video previews, manuals**: every free source needs an account or API key.
-  Could be added with the user's own ScreenScraper or IGDB key.
+- **Netplay**: needs support inside the browser emulator engine (EmulatorJS), which only has an
+  experimental version. Phone controllers cover local multiplayer.
+- **Earning RetroAchievements**: RetroAchievements only accepts unlocks from emulators it has
+  approved, and rejects others (`unsupported_client`). Phosphor shows achievements and progress;
+  earning them in Phosphor itself needs RetroAchievements' approval.
+- **ScreenScraper** needs developer credentials that ScreenScraper issues per app.
 - **Copyrighted BIOS files**: never included (see `bios/README.md`).
 - **N64 and PSP** run in software in the browser, so they need a decent PC or recent phone; PSP and
   DOS also need the HTTPS address.

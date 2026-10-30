@@ -17,6 +17,8 @@ import { HttpError, json, sendFile, safeJoin } from "./http.js";
 import { BY_ID } from "./systems.js";
 import { attachPads } from "./pad.js";
 import { FreeGames } from "./freegames.js";
+import { GameInfo } from "./info.js";
+import { Achievements } from "./achievements.js";
 
 export const APP_NAME = "Phosphor";
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -57,7 +59,12 @@ export async function start(opts = {}) {
   emulators.onProgress((s) => bus.emit("emulators", s));
 
   const freeGames = new FreeGames({ library, db, log });
-  const api = buildApi({ db, library, media, emulators, bus, paths, version: pkg.version, freeGames });
+  const info = new GameInfo({ db, library, dir: path.join(internal, "media"), log });
+  const achievements = new Achievements({ db, library, dir: path.join(internal, "cache"), log });
+  library.on("game", (g) => info.enqueue(g.id));
+  library.on("changed", () => info.enqueueMissing());
+  info.onInfo = (id) => bus.emit("info", { id });
+  const api = buildApi({ db, library, media, emulators, bus, paths, version: pkg.version, freeGames, info, achievements });
 
   const handler = async (req, res) => {
     const url = new URL(req.url, "http://localhost");

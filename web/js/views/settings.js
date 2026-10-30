@@ -7,6 +7,7 @@ const SECTIONS = [
   ["emulators", "Emulators", "cpu"],
   ["library", "Library & BIOS", "folder"],
   ["players", "Players", "users"],
+  ["accounts", "Accounts", "star"],
   ["general", "General", "sliders"],
   ["about", "About", "info"],
 ];
@@ -21,7 +22,7 @@ export default async function settings({ params }) {
     h("div.settings",
       h("nav", SECTIONS.map(([id, label, icn]) => h("button", { "data-nav": "", class: id === section ? "on" : "", onclick: () => go(`/settings/${id}`) }, ic(icn), label))),
       content));
-  const render = { emulators, library, players, general, about }[section];
+  const render = { emulators, library, players, accounts, general, about }[section];
   const cleanup = await render(content);
   return { el, title: "Settings", destroy: cleanup };
 }
@@ -234,6 +235,40 @@ function editPlayer(p, done) {
       done();
     } }],
   });
+}
+
+// ---------------- Accounts: RetroAchievements + ScreenScraper ----------------
+async function accounts(root) {
+  const ra = await api.get("/api/retroachievements").catch(() => null);
+  const ss = await api.get("/api/screenscraper").catch(() => ({}));
+  const raUser = h("input.text", { placeholder: "RetroAchievements username", value: ra?.user || "", autocomplete: "off" });
+  const raKey = h("input.text", { placeholder: "Web API key", type: "password", autocomplete: "off" });
+  const raCard = h("div.card", h("h3", `RetroAchievements for ${store.profile.name}`),
+    h("p", "Link your free RetroAchievements account to see every game's achievements and which ones you've earned. Your Web API key is on retroachievements.org under Settings › Keys. Each player links their own."),
+    ra ? h("div.list-item", { style: { cursor: "default", marginBottom: "12px" } }, ra.avatar ? h("img", { src: ra.avatar, alt: "", style: { width: "40px", height: "40px", borderRadius: "10px" } }) : ic("star"),
+      h("div.grow", h("div.t", ra.user), h("div.d", "Linked")),
+      h("button.btn.small.ghost", { "data-nav": "", onclick: async () => { await api.del("/api/retroachievements"); go("/settings/accounts"); } }, "Unlink")) : null,
+    h("div", { style: { display: "grid", gap: "10px", maxWidth: "460px" } }, raUser, raKey,
+      h("button.btn.primary", { "data-nav": "", style: { justifySelf: "start" }, onclick: async () => {
+        try { const r = await api.put("/api/retroachievements", { user: raUser.value, key: raKey.value }); toast({ title: `Linked ${r.user}`, text: r.points != null ? `${r.points.toLocaleString()} points` : "", icon: "star", kind: "good" }); go("/settings/accounts"); }
+        catch (e) { toastError(e, "Couldn't link RetroAchievements"); }
+      } }, ic("check"), ra ? "Update" : "Link account")),
+    h("p", { style: { fontSize: "13px", marginTop: "14px" } }, "Earning achievements needs an emulator RetroAchievements has approved (like RetroArch). Phosphor's in-browser emulators aren't approved yet, so play there to unlock; your progress shows up here."));
+
+  const f = (ph, val, type = "text") => h("input.text", { placeholder: ph, value: val || "", type, autocomplete: "off" });
+  const devid = f("Developer ID"), devpw = f("Developer password", "", "password"), user = f("ScreenScraper username (optional)", ss.user), pw = f("ScreenScraper password", "", "password");
+  const ssCard = h("div.card", h("h3", "Game descriptions"),
+    h("p", ss.ready ? "ScreenScraper is connected: descriptions, ratings, gameplay videos and manuals are being fetched." : "Descriptions come from Wikipedia for free. Connect ScreenScraper for richer info: descriptions for far more games, ratings, gameplay videos and manuals."),
+    ss.builtIn ? null : h("p", { style: { fontSize: "13px" } }, "ScreenScraper gives every app its own free developer ID (ask on the screenscraper.fr forum). Adding your free ScreenScraper account as well raises your daily limit."),
+    h("div", { style: { display: "grid", gap: "10px", maxWidth: "460px" } },
+      ss.builtIn ? null : devid, ss.builtIn ? null : devpw, user, pw,
+      h("button.btn.primary", { "data-nav": "", style: { justifySelf: "start" }, onclick: async () => {
+        const body = { user: user.value, password: pw.value };
+        if (!ss.builtIn) Object.assign(body, { devid: devid.value, devpassword: devpw.value });
+        try { const r = await api.put("/api/screenscraper", body); toast({ title: r.ready ? "ScreenScraper connected" : "Saved", text: r.ready ? "Fetching descriptions, ratings and videos for your library." : "", icon: "check", kind: "good" }); go("/settings/accounts"); }
+        catch (e) { toastError(e, "Couldn't connect ScreenScraper"); }
+      } }, ic("check"), "Save")));
+  root.append(raCard, ssCard);
 }
 
 // ---------------- General ----------------

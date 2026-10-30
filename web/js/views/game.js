@@ -66,6 +66,23 @@ export default async function gameView({ params }) {
         actions,
         locked ? h("div.note", { style: { marginTop: "16px", maxWidth: "640px" } }, ic("lock"), h("div", `Drop ${sys.biosFiles[0]?.name || "the BIOS"} into the BIOS folder to unlock ${sys.short} games.`)) : null)));
 
+  // About: description (with its source), rating, gameplay video, manual.
+  if (g.description || g.video || g.manual) {
+    const stars = g.rating ? h("span.stars", { title: `${g.rating} out of 5` }, "★".repeat(Math.round(g.rating)), h("span.dim", "★".repeat(5 - Math.round(g.rating)))) : null;
+    const text = h("p.desc", g.description || "");
+    const more = g.description && g.description.length > 420 ? h("button.chip", { "data-nav": "", onclick: (e) => { text.classList.toggle("open"); e.currentTarget.textContent = text.classList.contains("open") ? "Less" : "More"; } }, "More") : null;
+    el.append(h("section.section.about",
+      h("h2", "About", stars),
+      h("div.about-grid",
+        h("div", text, h("div.about-foot", more,
+          g.descSource ? h("a.src", { href: g.descUrl || "#", target: "_blank", rel: "noopener" }, `From ${g.descSource}`) : null,
+          g.manual ? h("a.chip", { href: g.manual, target: "_blank", rel: "noopener", "data-nav": "" }, ic("info"), "Manual") : null)),
+        g.video ? h("video.gvideo", { src: g.video, controls: true, muted: true, loop: true, playsinline: true, preload: "none", poster: g.snap || "" }) : null)));
+  }
+  const ach = h("section.section");
+  el.append(ach);
+  loadAchievements(g, ach);
+
   // Save states
   const states = h("div.states");
   const renderStates = (list) => {
@@ -200,4 +217,29 @@ async function historySheet(g) {
     } }, ic("history"), h("div.grow", h("div.t", new Date(v.at).toLocaleString()), h("div.d", `${fmtBytes(v.size)} · ${timeAgo(v.at)}`))))) : h("p", { style: { color: "var(--text-2)" } }, "No older versions yet. They appear after your next few saves."),
     actions: [{ label: "Close", kind: "ghost" }],
   });
+}
+
+// RetroAchievements: the game's achievements and this player's progress.
+async function loadAchievements(g, host) {
+  const a = await api.get(`/api/games/${g.id}/achievements`).catch(() => null);
+  if (!a) return;
+  if (!a.connected) {
+    host.append(h("h2", "Achievements"), h("div.note.info", ic("star"),
+      h("div", "See this game's RetroAchievements and your progress: ", h("a", { href: "/settings/accounts", "data-nav": "", style: { textDecoration: "underline" } }, "link your RetroAchievements account"), ".")));
+    return;
+  }
+  if (a.error) { host.append(h("h2", "Achievements"), h("div.note", ic("alert"), h("div", a.error))); return; }
+  if (!a.supported || !a.found) {
+    host.append(h("h2", "Achievements"), h("p", { style: { color: "var(--text-3)", margin: 0 } }, !a.supported ? a.reason : "RetroAchievements doesn't have a set for this exact version of the game."));
+    return;
+  }
+  const pct = a.total ? Math.round((a.earned / a.total) * 100) : 0;
+  host.append(
+    h("h2", "Achievements", h("span.sub", `${a.earned} of ${a.total} · ${a.earnedPoints} of ${a.points} points`)),
+    h("div.ach-bar", h("i", { style: { width: `${pct}%` } })),
+    h("div.ach-grid", a.achievements.map((x) => h("div.ach", { class: x.earned ? "got" : "", title: `${x.title}: ${x.description} (${x.points} points)` },
+      h("img", { src: x.earned ? x.badge : x.badgeLocked, alt: "", loading: "lazy" }),
+      h("div", h("b", x.title), h("span", x.description), h("em", `${x.points} pts${x.earned ? ` · earned ${new Date(x.earned).toLocaleDateString()}` : ""}`))))),
+    h("p.ach-note", "Achievements are earned in emulators approved by RetroAchievements, like RetroArch. Your progress from there shows up here. ",
+      h("a", { href: a.game.url, target: "_blank", rel: "noopener", style: { textDecoration: "underline" } }, "View on RetroAchievements")));
 }
