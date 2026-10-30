@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#06070b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Phosphor controller</title>
+  <link rel="icon" href="/img/icon.svg" type="image/svg+xml">
+  <style>
+    @font-face { font-family: "Inter"; src: url("/fonts/inter.woff2") format("woff2"); font-weight: 100 900; }
+    @font-face { font-family: "Space Grotesk"; src: url("/fonts/space-grotesk.woff2") format("woff2"); font-weight: 300 700; }
+    :root { --accent: #7c5cff; color-scheme: dark; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; height: 100%; background: #06070b; color: #f3f5fb; font: 15px/1.4 "Inter", system-ui, sans-serif; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+    button { font: inherit; color: inherit; border: 0; background: none; padding: 0; }
+    .screen { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; background: radial-gradient(circle at 50% 20%, rgba(124,92,255,.28), transparent 60%); }
+    .screen h1 { font: 700 30px/1.1 "Space Grotesk", sans-serif; margin: 0 0 10px; letter-spacing: -.02em; }
+    .screen p { color: rgba(255,255,255,.65); margin: 0 0 26px; }
+    .digits { display: flex; gap: 10px; justify-content: center; margin-bottom: 22px; }
+    .digits input { width: 58px; height: 74px; border-radius: 16px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06); color: #fff; text-align: center; font: 700 34px "Space Grotesk", sans-serif; outline: none; }
+    .digits input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(124,92,255,.25); }
+    .go { height: 54px; padding: 0 34px; border-radius: 16px; background: #fff; color: #000; font-weight: 700; font-size: 17px; }
+    .err { color: #fca5a5; margin-top: 16px; min-height: 20px; }
+    #pad { position: fixed; inset: 0; display: none; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%), #07080d; }
+    #pad.on { display: block; }
+    .bar { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 10px; pointer-events: none; }
+    .who { pointer-events: auto; display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 99px; background: rgba(255,255,255,.08); font-weight: 700; font-size: 13px; }
+    .who i { width: 9px; height: 9px; border-radius: 50%; background: #36e2c4; box-shadow: 0 0 10px #36e2c4; }
+    .who.off i { background: #f87171; box-shadow: 0 0 10px #f87171; }
+    .menu { pointer-events: auto; height: 32px; padding: 0 14px; border-radius: 99px; background: rgba(255,255,255,.12); font-weight: 700; font-size: 12px; letter-spacing: .06em; }
+    .title { position: absolute; top: calc(48px + env(safe-area-inset-top)); left: 0; right: 0; text-align: center; color: rgba(255,255,255,.35); font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 30%; }
+    .dpad { position: absolute; width: min(42vh, 210px); height: min(42vh, 210px); left: max(6vw, 28px); top: 50%; transform: translateY(-38%); border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.06), rgba(255,255,255,.02)); }
+    .dpad .arm { position: absolute; background: linear-gradient(180deg, #2a2d3d, #1a1c27); border: 1px solid rgba(255,255,255,.1); box-shadow: 0 6px 16px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.08); }
+    .dpad .h { left: 6%; right: 6%; top: 35%; bottom: 35%; border-radius: 12px; }
+    .dpad .v { top: 6%; bottom: 6%; left: 35%; right: 35%; border-radius: 12px; }
+    .dpad .glow { position: absolute; width: 30%; height: 30%; border-radius: 10px; background: var(--accent); opacity: 0; transition: opacity .05s; filter: blur(6px); }
+    .dpad .glow.on { opacity: .75; }
+    .stick { position: absolute; width: min(40vh, 190px); height: min(40vh, 190px); left: max(6vw, 28px); top: 50%; transform: translateY(-38%); border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.1), rgba(255,255,255,.03)); border: 1px solid rgba(255,255,255,.12); }
+    .stick .knob { position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; margin: -21% 0 0 -21%; border-radius: 50%; background: linear-gradient(180deg, #3a3e52, #22242f); box-shadow: 0 8px 20px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.15); }
+    .face { position: absolute; right: max(6vw, 28px); top: 50%; transform: translateY(-38%); width: min(46vh, 230px); height: min(46vh, 230px); }
+    .btn { position: absolute; width: 36%; height: 36%; border-radius: 50%; display: grid; place-items: center; font: 800 clamp(16px, 5vh, 24px) "Space Grotesk", sans-serif; color: rgba(255,255,255,.92); background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--c, #3a3e52) 85%, #fff), var(--c, #3a3e52) 60%, color-mix(in srgb, var(--c, #3a3e52) 60%, #000)); box-shadow: 0 8px 18px rgba(0,0,0,.55), inset 0 -3px 0 rgba(0,0,0,.25); transition: transform .05s, filter .05s; }
+    .btn.on { transform: scale(.9); filter: brightness(1.35); }
+    .shoulder { position: absolute; top: calc(14px + env(safe-area-inset-top)); height: 46px; min-width: 96px; padding: 0 16px; border-radius: 14px; display: grid; place-items: center; font-weight: 800; background: linear-gradient(180deg, #2c2f40, #1c1e29); border: 1px solid rgba(255,255,255,.1); }
+    .shoulder.on { filter: brightness(1.5); transform: scale(.96); }
+    .shoulder.l { left: 18px; } .shoulder.r { right: 18px; }
+    .shoulder.l2 { left: 124px; } .shoulder.r2 { right: 124px; }
+    .meta { position: absolute; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: flex; gap: 18px; }
+    .meta .pill { height: 34px; min-width: 82px; padding: 0 14px; border-radius: 99px; display: grid; place-items: center; font-weight: 800; font-size: 12px; letter-spacing: .1em; background: #232634; border: 1px solid rgba(255,255,255,.1); }
+    .meta .pill.on { filter: brightness(1.6); }
+    #rotate { display: none; }
+    @media (orientation: portrait) { #pad.on ~ #rotate { display: grid; position: fixed; inset: 0; z-index: 10; background: #06070b; place-items: center; text-align: center; padding: 30px; } }
+    #rotate svg { width: 70px; height: 70px; margin: 0 auto 16px; animation: rot 2s ease-in-out infinite; }
+    @keyframes rot { 50% { transform: rotate(-90deg); } }
+  </style>
+  <script type="module" src="/js/pad.js"></script>
+</head>
+<body>
+  <div class="screen" id="join">
+    <div>
+      <h1>Join the game</h1>
+      <p>Enter the 4-digit code shown on the game screen.</p>
+      <div class="digits"><input inputmode="numeric" maxlength="1" aria-label="Digit 1"><input inputmode="numeric" maxlength="1" aria-label="Digit 2"><input inputmode="numeric" maxlength="1" aria-label="Digit 3"><input inputmode="numeric" maxlength="1" aria-label="Digit 4"></div>
+      <button class="go" id="go">Join</button>
+      <div class="err" id="err"></div>
+    </div>
+  </div>
+  <div id="pad"></div>
+  <div id="rotate"><div><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg><h2 style="font-family:'Space Grotesk';margin:0 0 6px">Turn your phone sideways</h2><p style="color:rgba(255,255,255,.6);margin:0">The controller works in landscape.</p></div></div>
+</body>
+</html>

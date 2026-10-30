@@ -1,0 +1,101 @@
+{
+  "name": "phosphor",
+  "version": "1.3.1",
+  "description": "Every classic, every screen, zero setup. A retro gaming app with every emulator built in.",
+  "type": "module",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "main": "desktop/main.mjs",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "PHOSPHOR_ROOT=./dev-library node --watch server/index.js",
+    "emulators": "node tools/fetch-emulators.mjs",
+    "db": "node tools/build-db.mjs",
+    "test": "node --test test/unit/*.test.js",
+    "e2e": "node --test --test-concurrency=1 test/e2e/",
+    "desktop": "electron .",
+    "dist:linux": "electron-builder --linux",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0"
+  },
+  "author": {
+    "name": "bnichols024",
+    "email": "126261310+bnichols024@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/bnichols024/phosphor",
+  "build": {
+    "appId": "app.phosphor.retro",
+    "productName": "Phosphor",
+    "copyright": "Phosphor contributors. GPL-3.0-or-later.",
+    "directories": {
+      "output": "dist",
+      "buildResources": "desktop/icons"
+    },
+    "files": [
+      "package.json",
+      "desktop/**",
+      "server/**",
+      "web/**",
+      "db/**",
+      "bios/**",
+      "node_modules/**",
+      "!**/*.map"
+    ],
+    "asarUnpack": [
+      "bios/**"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/emulators",
+        "to": "emulators"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ],
+      "category": "Game",
+      "icon": "desktop/icons/icon.png"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "icon": "desktop/icons/icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Phosphor-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "zip"
+      ],
+      "category": "public.app-category.games",
+      "icon": "desktop/icons/icon.png",
+      "identity": null
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "bnichols024",
+        "repo": "phosphor",
+        "releaseType": "release"
+      }
+    ]
+  }
+}

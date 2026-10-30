@@ -1,0 +1,7 @@
+.git
+node_modules
+vendor
+library
+dev-library
+test
+*.log

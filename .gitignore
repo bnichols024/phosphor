@@ -1,0 +1,8 @@
+node_modules/
+vendor/emulators/
+library/
+dev-library/
+*.log
+.DS_Store
+dist/
+CLAUDE.md
