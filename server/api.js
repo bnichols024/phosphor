@@ -5,6 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { Router, HttpError, json, readBody, readJson, sendFile } from "./http.js";
 import { SYSTEMS, BY_ID, publicSystem } from "./systems.js";
+import { NATIVE } from "./native/catalog.js";
 import { parseName, sortTitle } from "./gamedb.js";
 
 const AVATARS = ["👾", "🍄", "⭐", "🦔", "🐉", "🚀", "🎯", "🕹️", "👻", "🐢", "🦊", "⚡"];
@@ -12,7 +13,7 @@ const COLORS = ["#7c5cff", "#ff5c8a", "#22c55e", "#f59e0b", "#06b6d4", "#ef4444"
 const SAVE_HISTORY = 8;
 
 export function buildApi(ctx) {
-  const { db, library, media, emulators, bus, paths, version, freeGames, info, achievements } = ctx;
+  const { db, library, media, emulators, bus, paths, version, freeGames, info, achievements, native = null, runner = null } = ctx;
   const r = new Router();
 
   // ---- helpers ----
@@ -61,10 +62,11 @@ export function buildApi(ctx) {
       version,
       profile: publicProfile(profile),
       profiles: db.all("SELECT * FROM profiles ORDER BY id").map(publicProfile),
-      systems: SYSTEMS.filter((s) => !(s.bios?.required && !ready[s.id]) && (!kidSystems(profile) || kidSystems(profile).has(s.id))).map((s) => ({ ...publicSystem(s), count: counts[s.id] || 0, locked: false, emulatorReady: emulators.hasCore(s.core) })),
+      systems: SYSTEMS.filter((s) => !(s.bios?.required && !ready[s.id]) && (!kidSystems(profile) || kidSystems(profile).has(s.id))).map((s) => ({ ...publicSystem(s), count: counts[s.id] || 0, locked: false, emulatorReady: s.native ? !!native?.exePath(s.native) : emulators.hasCore(s.core) })),
       hiddenSystems: SYSTEMS.filter((s) => s.bios?.required && !ready[s.id]).map((s) => ({ id: s.id, name: s.name, games: counts[s.id] || 0, biosFiles: s.bios.files.map((f) => f.name) })),
       library: { ...library.status, root: paths.root, dropFolder: library.dropDir, total: SYSTEMS.filter((s) => !(s.bios?.required && !ready[s.id])).reduce((a, s) => a + (counts[s.id] || 0), 0) },
       emulators: emulators.summary(),
+      desktop: !!runner,
       settings: { ...settings(), parentPin: undefined, hasPin: !!db.getSetting("parentPin", null) },
     });
   });
@@ -324,6 +326,15 @@ export function buildApi(ctx) {
     const profile = profileOf(req);
     const g = gameOr404(id);
     const sys = BY_ID[g.system];
+    if (sys.native) {
+      // Played in a desktop emulator: the play page asks the server to start it (desktop app only).
+      const play = db.get("SELECT * FROM plays WHERE profile_id = ? AND game_id = ?", profile.id, g.id);
+      return json(res, 200, {
+        game: { ...gameRow(g, play), developer: g.developer, publisher: g.publisher },
+        system: publicSystem(sys), profile: publicProfile(profile),
+        native: { emulator: NATIVE[sys.native].name, desktop: !!runner, installed: !!native?.exePath(sys.native), local: isLocal(req), status: runner?.status() || null },
+      });
+    }
     const active = emulators.active();
     if (!active) throw new HttpError(503, "No emulators are installed. Open Settings and press Update.");
     const files = JSON.parse(g.files);
@@ -418,6 +429,49 @@ export function buildApi(ctx) {
   r.get("/api/games/:id/download", (req, res, { id }) => {
     const g = gameOr404(id);
     sendFile(req, res, library.absPath(g.path), { downloadName: path.basename(g.path) });
+  });
+
+  // ---- desktop emulators ----
+  // Starts the game in its desktop emulator on this computer. Only from the computer itself: a
+  // phone on the Wi-Fi shouldn't be able to pop a game up on someone's screen.
+  r.post("/api/games/:id/native", (req, res, { id }) => {
+    const profile = profileOf(req);
+    const g = gameOr404(id);
+    const sys = BY_ID[g.system];
+    if (!sys.native) throw new HttpError(400, `${sys.short} games play right here in the browser.`);
+    if (!runner) throw new HttpError(409, `${sys.short} games play in the Phosphor desktop app for Windows, Mac and Linux.`);
+    if (!isLocal(req)) throw new HttpError(403, `Start ${sys.short} games on the computer running Phosphor.`);
+    const emu = NATIVE[sys.native];
+    const files = JSON.parse(g.files);
+    const safeProfile = profile.name.replace(/[^\w\- ]+/g, "").trim() || `Player ${profile.id}`;
+    const dataDir = path.join(paths.internal, "native-data", sys.native, String(profile.id));
+    let game = library.absPath(files.find((f) => /\.m3u$/i.test(f)) || files[0]);
+    if (g.discs > 1 && !/\.m3u$/i.test(game)) {
+      // Multi-disc games: a playlist of every disc lets the emulator swap discs itself.
+      const discs = files.filter((f) => /\.(iso|gcm|rvz|gcz|wia|ciso|wbfs|gdi|cdi|chd|cue)$/i.test(f)).map((f) => library.absPath(f));
+      fs.mkdirSync(dataDir, { recursive: true });
+      game = path.join(dataDir, `game-${g.id}.m3u`);
+      fs.writeFileSync(game, discs.join("\n") + "\n");
+    }
+    const now = Date.now();
+    let out;
+    try {
+      out = runner.start({
+        emulatorId: sys.native, gameId: g.id, profileId: profile.id, game, dataDir,
+        saveDir: path.join(library.savesDir, safeProfile, emu.saveFolder),
+      });
+    } catch (e) { throw new HttpError(e.status || 500, e.message); }
+    db.run(`INSERT INTO plays(profile_id, game_id, last_played, count) VALUES(?,?,?,1)
+      ON CONFLICT(profile_id, game_id) DO UPDATE SET last_played = excluded.last_played, count = count + 1`, profile.id, g.id, now);
+    runner.current.session = Number(db.run("INSERT INTO sessions(profile_id, game_id, started_at, seconds) VALUES(?,?,?,0)", profile.id, g.id, now).lastInsertRowid);
+    bus.emit("played", { id: g.id, profile: profile.id });
+    bus.emit("native", runner.status());
+    json(res, 200, out);
+  });
+  r.get("/api/native", (req, res) => json(res, 200, { desktop: !!runner, status: runner?.status() || null, emulators: native?.summary() || [] }));
+  r.post("/api/native/stop", (req, res) => {
+    if (!runner || !isLocal(req)) throw new HttpError(403, "Not available here.");
+    json(res, 200, { stopped: runner.stop() });
   });
 
   // ---- play sessions (play time, recently played) ----
@@ -747,7 +801,7 @@ export function buildApi(ctx) {
     res.write(`retry: 3000\n\n`);
     const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     const handlers = {};
-    for (const ev of ["library", "emulators", "game", "art", "played", "upload", "info"]) {
+    for (const ev of ["library", "emulators", "game", "art", "played", "upload", "info", "native"]) {
       handlers[ev] = (d) => send(ev, d);
       bus.on(ev, handlers[ev]);
     }
@@ -760,6 +814,8 @@ export function buildApi(ctx) {
 
   return r;
 }
+
+const isLocal = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress);
 
 const PATCH_EXTS = [".ips", ".bps", ".ups"];
 // A patch file sitting next to a game with the same name ("Game.sfc" + "Game.ips").

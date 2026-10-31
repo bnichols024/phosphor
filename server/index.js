@@ -19,6 +19,8 @@ import { attachPads } from "./pad.js";
 import { FreeGames } from "./freegames.js";
 import { GameInfo } from "./info.js";
 import { Achievements } from "./achievements.js";
+import { NativeEmulators } from "./native/manager.js";
+import { NativeRunner } from "./native/runner.js";
 
 export const APP_NAME = "Phosphor";
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -45,11 +47,35 @@ export async function start(opts = {}) {
   bus.setMaxListeners(200);
   const library = new Library({ root, db, gamedb, log });
   const media = new Media({ dir: path.join(internal, "media"), db, log });
+  // Desktop emulators (Dreamcast, GameCube, Wii...) only exist in the desktop app, which passes
+  // `native`: where the bundled ones are and a local folder for updates.
+  const native = opts.native ? new NativeEmulators({
+    bundledDir: opts.native.bundledDir || path.join(appDir, "vendor", "native"),
+    userDir: opts.native.userDir || path.join(internal, "native"),
+    platform: opts.native.platform,
+    log,
+  }) : null;
   const emulators = new Emulators({
     bundledDir: opts.bundledEmulators || process.env.PHOSPHOR_BUNDLED_EMULATORS || path.join(appDir, "vendor", "emulators"),
     userDir: path.join(internal, "emulators"),
+    native,
     log,
   });
+  const runner = native ? new NativeRunner({
+    native, log, spawnFn: opts.native.spawn, quickExit: opts.native.quickExit,
+    onStart: (e) => opts.native.onStart?.(e),
+    onExit: (e) => {
+      // Play time for the session the API opened when the game started.
+      const sid = e.session;
+      const s = sid && db.get("SELECT * FROM sessions WHERE id = ?", sid);
+      if (s && !e.failed) {
+        db.run("UPDATE sessions SET seconds = ? WHERE id = ?", e.seconds, s.id);
+        db.run("UPDATE plays SET seconds = seconds + ?, last_played = ? WHERE profile_id = ? AND game_id = ?", e.seconds, Date.now(), s.profile_id, s.game_id);
+      }
+      bus.emit("native", { running: false, last: e });
+      opts.native.onExit?.(e);
+    },
+  }) : null;
 
   await library.ensureLayout();
   library.on("progress", (s) => bus.emit("library", s));
@@ -64,7 +90,7 @@ export async function start(opts = {}) {
   library.on("game", (g) => info.enqueue(g.id));
   library.on("changed", () => info.enqueueMissing());
   info.onInfo = (id) => bus.emit("info", { id });
-  const api = buildApi({ db, library, media, emulators, bus, paths, version: pkg.version, freeGames, info, achievements });
+  const api = buildApi({ db, library, media, emulators, bus, paths, version: pkg.version, freeGames, info, achievements, native, runner });
 
   const handler = async (req, res) => {
     const url = new URL(req.url, "http://localhost");
@@ -144,7 +170,7 @@ export async function start(opts = {}) {
       if (opts.watch !== false) library.watch();
     });
   }
-  return { server, port: actualPort, db, library, media, emulators, bus, close: () => new Promise((r) => { secure?.close(); server.close(r); server.closeAllConnections?.(); db.close(); }) };
+  return { server, port: actualPort, db, library, media, emulators, native, runner, bus, close: () => new Promise((r) => { secure?.close(); server.close(r); server.closeAllConnections?.(); db.close(); }) };
 }
 
 // Certificate from PHOSPHOR_TLS_CERT/KEY, or <library>/.phosphor/tls/, generated with openssl if missing.

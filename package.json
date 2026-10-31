@@ -1,6 +1,6 @@
 {
   "name": "phosphor",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Every classic, every screen, zero setup. A retro gaming app with every emulator built in.",
   "type": "module",
   "private": true,
@@ -19,9 +19,11 @@
     "desktop": "electron .",
     "dist:linux": "electron-builder --linux",
     "dist:win": "electron-builder --win",
-    "dist:mac": "electron-builder --mac"
+    "dist:mac": "electron-builder --mac",
+    "native": "node tools/fetch-native-emulators.mjs"
   },
   "dependencies": {
+    "7zip-bin": "^5.2.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
@@ -53,12 +55,17 @@
       "!**/*.map"
     ],
     "asarUnpack": [
-      "bios/**"
+      "bios/**",
+      "node_modules/7zip-bin/**"
     ],
     "extraResources": [
       {
         "from": "vendor/emulators",
         "to": "emulators"
+      },
+      {
+        "from": "vendor/native",
+        "to": "native"
       }
     ],
     "linux": {

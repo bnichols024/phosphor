@@ -76,6 +76,7 @@ async function boot() {
   } catch (e) {
     return fail(e.message);
   }
+  if (L.native) return playNative();
   if (L.threads && !window.crossOriginIsolated) {
     return fail(`${L.system.short} games need a secure connection (https://, or http://localhost on the computer running Phosphor), because the ${L.system.short} emulator uses multiple threads. Every other console works over plain http.`);
   }
@@ -167,23 +168,67 @@ function watchEmulatorText() {
   obs.observe(document.getElementById("game"), { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["style"] });
 }
 
+// ---------------- desktop emulators (GameCube, Wii, Dreamcast...) ----------------
+// The desktop app starts the real emulator full screen. This page waits behind it and goes back to
+// Phosphor when the game is closed.
+async function playNative() {
+  const N = L.native;
+  document.title = `${L.game.title} · Phosphor`;
+  document.documentElement.style.setProperty("--accent", L.system.color);
+  paintLoader();
+  $(".tip", loader)?.remove();
+  if (!N.desktop) return fail(`${L.system.short} games play in the free Phosphor desktop app for Windows, Mac and Linux, which runs ${N.emulator} on your computer. Browsers can't run ${L.system.short} games.`,
+    { info: true, link: { href: "https://github.com/bnichols024/phosphor/releases/latest", label: "Get the desktop app" } });
+  if (!N.local) return fail(`${L.system.short} games start on the computer running Phosphor. Open Phosphor there and press Play.`, { info: true });
+  if (!N.installed) return fail(`${N.emulator} isn't installed yet. Open Settings › Emulators and press Update.`);
+  $(".status", loader).textContent = `Starting ${N.emulator}…`;
+  try {
+    const res = await fetch(`/api/games/${gameId}/native`, { method: "POST", headers: H });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "The game couldn't be started.");
+  } catch (e) { return fail(e.message); }
+  $(".progress", loader)?.remove();
+  $("h1", loader).textContent = L.game.title;
+  $(".status", loader).textContent = `Playing in ${N.emulator}. Quit the game (Esc, or Exit in its menu) to come back here.`;
+  $(".inner", loader).append(el("div", { class: "err-actions" },
+    el("button", { class: "hbtn", style: "width:auto;padding:0 18px", onclick: async () => {
+      await fetch("/api/native/stop", { method: "POST", headers: H }).catch(() => {});
+    } }, "Stop the game")));
+  const done = (st) => {
+    if (st?.running || !st?.last || st.last.gameId !== gameId) return false;
+    if (st.last.failed) fail(st.last.message || `${N.emulator} closed unexpectedly.`);
+    else exitTo();
+    return true;
+  };
+  const es = new EventSource("/api/events");
+  es.addEventListener("native", (e) => { if (done(JSON.parse(e.data))) es.close(); });
+  // Fallback in case the event stream drops while the game runs.
+  const poll = setInterval(async () => {
+    const st = await fetch("/api/native", { headers: H }).then((r) => r.json()).catch(() => null);
+    if (st && done(st.status)) { clearInterval(poll); es.close(); }
+  }, 4000);
+}
+
 const CORE_NAMES = { mupen64plus_next: "Mupen64Plus", parallel_n64: "ParaLLEl N64", desmume2015: "DeSmuME", melonds: "melonDS", desmume: "DeSmuME (new)", pcsx_rearmed: "PCSX ReARMed", mednafen_psx_hw: "Beetle PSX", fceumm: "FCEUmm", nestopia: "Nestopia", genesis_plus_gx: "Genesis Plus GX", picodrive: "PicoDrive", smsplus: "SMS Plus", fbneo: "FinalBurn Neo", mame2003_plus: "MAME 2003-Plus", vice_x64sc: "VICE", vice_x128: "VICE", vice_xvic: "VICE", vice_xplus4: "VICE", vice_xpet: "VICE", "81": "EightyOne", prboom: "PrBoom" };
 const coreName = (c) => CORE_NAMES[c] || c;
 
 let failed = false;
-function fail(message) {
+// info: a calm explanation rather than an error (no "Try again"); link: { href, label } button.
+function fail(message, { info = false, link = null } = {}) {
   if (failed) return;
   failed = true;
   if (!loader) buildChrome();
   loader.classList.remove("done");
   $(".progress", loader)?.remove();
   $(".status", loader).textContent = "";
+  if (info) $(".tip", loader)?.remove();
   // Offer the console's other emulator(s): some games only run on one of them.
   const others = (L?.cores || []).filter((c) => c !== L.core);
-  $(".inner", loader).append(el("div", { class: "err" }, message),
+  $(".inner", loader).append(el("div", { class: info ? "err info" : "err" }, message),
     el("div", { class: "err-actions" },
       others.map((c) => el("button", { class: "hbtn", style: "width:auto;padding:0 18px;background:#fff;color:#000", onclick: () => location.replace(`/play/${gameId}?core=${c}`) }, `Try ${coreName(c)}`)),
-      el("button", { class: "hbtn", style: "width:auto;padding:0 18px", onclick: () => location.reload() }, "Try again"),
+      link ? el("a", { class: "hbtn", href: link.href, target: "_blank", rel: "noopener", style: "width:auto;padding:0 18px;background:#fff;color:#000;text-decoration:none" }, link.label) : null,
+      info ? null : el("button", { class: "hbtn", style: "width:auto;padding:0 18px", onclick: () => location.reload() }, "Try again"),
       el("button", { class: "hbtn", style: "width:auto;padding:0 18px", onclick: () => exitTo() }, "Back")));
 }
 

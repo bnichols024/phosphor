@@ -6,3 +6,4 @@ dev-library/
 .DS_Store
 dist/
 CLAUDE.md
+vendor/native/

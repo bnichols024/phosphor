@@ -37,6 +37,7 @@ body.lcd #lcd { display: block; }
 #loader .status { color: rgba(255,255,255,.65); font-size: 14px; min-height: 21px; }
 #loader .tip { position: absolute; bottom: calc(26px + env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; color: rgba(255,255,255,.45); font-size: 13px; padding: 0 20px; }
 #loader .err { margin-top: 18px; max-width: 460px; color: #fca5a5; }
+#loader .err.info { color: rgba(255,255,255,.78); }
 #loader .err-actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
 @keyframes indet { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
 @keyframes float { 50% { transform: translateY(-8px); } }
@@ -134,3 +135,4 @@ kbd { font: 700 12px var(--font); padding: 2px 7px; border-radius: 6px; backgrou
 #rec-badge i { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; animation: blink 1s steps(2) infinite; }
 body.rec #rec-badge { display: flex; }
 @keyframes blink { 50% { opacity: .2; } }
+#loader .sys + .status { margin-top: 22px; }

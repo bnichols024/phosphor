@@ -40,6 +40,10 @@ jobs:
         with: { node-version: 24 }
       - run: npm ci
       - run: npm run emulators
+      # Desktop emulators (Dolphin, Flycast...) for this runner's OS; a Mac is needed for .dmg files.
+      - run: npm run native
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npx electron-builder ${{ matrix.args }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

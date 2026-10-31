@@ -21,7 +21,7 @@ Modified versions of CC BY-SA photos are shared under the same license.
 | Amstrad CPC | [Amstrad CPC464.jpg](https://commons.wikimedia.org/wiki/File:Amstrad_CPC464.jpg) | Bill Bertram | [CC BY-SA 2.5](https://creativecommons.org/licenses/by-sa/2.5) |
 | Doom engine games | [IBM PC-IMG 7271.jpg](https://commons.wikimedia.org/wiki/File:IBM_PC-IMG_7271.jpg) | Rama & Musée Bolo | [CC BY-SA 2.0 fr](https://creativecommons.org/licenses/by-sa/2.0/fr/deed.en) |
 | MS-DOS | [IBM PC-IMG 7271.jpg](https://commons.wikimedia.org/wiki/File:IBM_PC-IMG_7271.jpg) | Rama & Musée Bolo | [CC BY-SA 2.0 fr](https://creativecommons.org/licenses/by-sa/2.0/fr/deed.en) |
-| Sega Dreamcast | [Sega-Dreamcast-Controller-FL.jpg](https://commons.wikimedia.org/wiki/File:Sega-Dreamcast-Controller-FL.jpg) | Evan-Amos | Public domain |
+| Sega Dreamcast | [Sega-Dreamcast-Controller-wVMU-FL.png](https://commons.wikimedia.org/wiki/File:Sega-Dreamcast-Controller-wVMU-FL.png) | Evan-Amos, modified by Gunnar.offel | Public domain |
 | Nintendo GameCube | [Gamecube-controller.jpg](https://commons.wikimedia.org/wiki/File:Gamecube-controller.jpg) | Evan-Amos | Public domain |
 | Sega Game Gear | [Sega-Game-Gear-WB.png](https://commons.wikimedia.org/wiki/File:Sega-Game-Gear-WB.png) | Evan-Amos | Public domain |
 | Game Boy | [Game-Boy-FL.png](https://commons.wikimedia.org/wiki/File:Game-Boy-FL.png) | Evan-Amos (background removed by another Commons user) | Public domain |

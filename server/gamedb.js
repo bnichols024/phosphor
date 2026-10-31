@@ -73,6 +73,17 @@ export class GameDB {
 
   byCrc(system, crc) { const db = this.load(system); return crc ? this._row(db, db?.crc[crc.toUpperCase()]) : null; }
   bySerial(system, serial) { const db = this.load(system); return serial ? this._row(db, db?.serials[serial]) : null; }
+  // Redump lists GameCube/Wii discs as "DL-DOL-GALE-USA" / "RVL-RMGE-USA": the disc's own 4-letter
+  // code is in the middle, so match on the start.
+  bySerialPrefix(system, prefix) {
+    const db = this.load(system);
+    if (!db || !prefix) return null;
+    const keys = Object.keys(db.serials).filter((k) => k.startsWith(prefix));
+    // The code's last letter is its region (E USA, P Europe, J Japan...): prefer that release.
+    const region = { E: "USA", P: "EUR", J: "JPN", K: "KOR", D: "GER", F: "FRA", S: "ESP", I: "ITA", U: "AUS" }[prefix.at(-1)];
+    const key = keys.find((k) => region && k.slice(prefix.length).startsWith(region)) || keys[0];
+    return key ? this._row(db, db.serials[key]) : null;
+  }
   byFile(system, base) { const db = this.load(system); return this._row(db, db?.files[base.toLowerCase()]); }
 
   // Best fuzzy match by normalised title, preferring the user's region order.

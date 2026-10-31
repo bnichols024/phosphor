@@ -18,9 +18,10 @@ const THREAD_CORES = new Set(SYSTEMS.filter((s) => s.threads).flatMap((s) => s.c
 const RUNTIME_SOURCES = ["emulator.js", "nipplejs.js", "shaders.js", "storage.js", "gamepad.js", "GameManager.js", "socket.io.min.js", "compression.js"];
 
 export class Emulators {
-  constructor({ bundledDir, userDir, log = console }) {
+  constructor({ bundledDir, userDir, native = null, log = console }) {
     this.bundledDir = bundledDir; // read-only, shipped with the app
     this.userDir = userDir; // writable, holds updates
+    this.native = native; // desktop emulators (desktop app only), updated by the same button
     this.log = log;
     this.state = { running: false, phase: "idle", done: 0, total: 0, message: "", error: null, lastCheck: null, check: null };
     this.listeners = new Set();
@@ -72,9 +73,12 @@ export class Emulators {
     const a = this.active();
     const installs = this.listInstalls();
     const prev = installs.find((i) => a && i.id !== a.id && i.source === "update") || installs.find((i) => a && i.id !== a.id);
+    const native = this.native?.summary() || [];
+    const last = this._lastUpdate();
     return {
       active: a ? { id: a.id, runtime: a.runtime, cores: a.cores, installedAt: a.installedAt, source: a.source || (a.dir.startsWith(this.userDir) ? "update" : "bundled") } : null,
-      canRollback: !!prev,
+      native,
+      canRollback: last ? (last.web && !!prev) || native.some((n) => last.native?.includes(n.id) && n.previous) : !!prev,
       previous: prev ? { id: prev.id, runtime: prev.runtime, installedAt: prev.installedAt } : null,
       state: { ...this.state },
     };
@@ -100,6 +104,7 @@ export class Emulators {
         const have = a?.cores?.[c.core] || null;
         if (have !== c.version) changes.push({ name: c.core, from: have, to: c.version });
       }
+      for (const n of await this._nativeCheck()) if (n.changed) changes.push({ name: n.name, from: n.from, to: n.to, native: true });
       const check = { checkedAt: new Date().toISOString(), runtime: runtime.version, changes, upToDate: changes.length === 0 };
       this._emit({ phase: this.state.running ? this.state.phase : "idle", message: "", lastCheck: check.checkedAt, check });
       return check;
@@ -119,58 +124,78 @@ export class Emulators {
       const a = this.active();
       const runtime = await this._latest(RUNTIME_PKG);
       const cores = await mapLimit(ALL_CORES, 6, async (c) => ({ core: c, ...(await this._latest(corePkg(c))) }));
-      const changed = !a || a.runtime !== runtime.version || cores.some((c) => a.cores?.[c.core] !== c.version);
-      if (!changed && !force) {
+      const webChanged = force || !a || a.runtime !== runtime.version || cores.some((c) => a.cores?.[c.core] !== c.version);
+      const nativeJobs = (await this._nativeCheck()).filter((n) => n.changed);
+      if (!webChanged && !nativeJobs.length) {
         this._emit({ running: false, phase: "idle", message: "Everything is already up to date.", check: { checkedAt: new Date().toISOString(), runtime: runtime.version, changes: [], upToDate: true } });
         return { updated: false, summary: this.summary() };
       }
 
-      const id = `${runtime.version}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
       await fsp.mkdir(this.userDir, { recursive: true });
-      staging = path.join(this.userDir, `.staging-${id}`);
-      await fsp.rm(staging, { recursive: true, force: true });
-      const data = path.join(staging, "data");
-      await fsp.mkdir(path.join(data, "cores", "reports"), { recursive: true });
-
-      const jobs = [{ kind: "runtime", ...runtime }, ...cores.map((c) => ({ kind: "core", ...c }))];
-      this._emit({ phase: "downloading", total: jobs.length, done: 0, message: `Downloading ${jobs.length} emulator packages…` });
+      const jobs = webChanged ? [{ kind: "runtime", ...runtime }, ...cores.map((c) => ({ kind: "core", ...c }))] : [];
+      const total = jobs.length + nativeJobs.length;
       let done = 0;
-      const versions = {};
-      await mapLimit(jobs, 4, async (job) => {
-        // Reuse the unchanged core from the current install instead of downloading it again.
-        if (!force && job.kind === "core" && a?.cores?.[job.core] === job.version && this._copyCoreFrom(a.dir, data, job.core)) {
-          versions[job.core] = job.version;
-        } else {
-          const buf = await download(job.tarball, job.integrity);
-          const entries = readTar(buf);
-          if (job.kind === "runtime") await writeRuntime(entries, data);
-          else { await writeCore(entries, data, job.core); versions[job.core] = job.version; }
-        }
-        done += 1;
-        this._emit({ done, message: job.kind === "runtime" ? `EmulatorJS ${job.version}` : `${job.core} ${job.version}` });
-      });
-
-      this._emit({ phase: "verifying", message: "Checking the new emulators…" });
-      for (const c of ALL_CORES) {
-        const want = `${c}${THREAD_CORES.has(c) ? "-thread" : ""}-wasm.data`;
-        if (!fs.existsSync(path.join(data, "cores", want))) throw new Error(`The ${c} package is missing ${want}.`);
-      }
-      for (const f of ["loader.js", "emulator.min.js", "emulator.min.css"]) {
-        if (!fs.existsSync(path.join(data, f))) throw new Error(`The runtime package is missing ${f}.`);
-      }
-
-      const manifest = { id, runtime: runtime.version, cores: versions, installedAt: new Date().toISOString() };
-      await fsp.writeFile(path.join(staging, "manifest.json"), JSON.stringify(manifest, null, 2));
-      const final = path.join(this.userDir, id);
-      await fsp.rename(staging, final);
-      staging = null;
-      await this._setActive(id);
-      await this._prune();
       const changes = [];
-      if (a?.runtime !== runtime.version) changes.push({ name: "EmulatorJS runtime", from: a?.runtime || null, to: runtime.version });
-      for (const c of ALL_CORES) if (a?.cores?.[c] !== versions[c]) changes.push({ name: c, from: a?.cores?.[c] || null, to: versions[c] });
+      this._emit({ phase: "downloading", total, done: 0, message: `Downloading ${total} emulator packages…` });
+
+      // Browser emulators: a whole new install folder, switched to only once it's complete.
+      if (webChanged) {
+        const id = `${runtime.version}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+        staging = path.join(this.userDir, `.staging-${id}`);
+        await fsp.rm(staging, { recursive: true, force: true });
+        const data = path.join(staging, "data");
+        await fsp.mkdir(path.join(data, "cores", "reports"), { recursive: true });
+        const versions = {};
+        await mapLimit(jobs, 4, async (job) => {
+          // Reuse the unchanged core from the current install instead of downloading it again.
+          if (!force && job.kind === "core" && a?.cores?.[job.core] === job.version && this._copyCoreFrom(a.dir, data, job.core)) {
+            versions[job.core] = job.version;
+          } else {
+            const buf = await download(job.tarball, job.integrity);
+            const entries = readTar(buf);
+            if (job.kind === "runtime") await writeRuntime(entries, data);
+            else { await writeCore(entries, data, job.core); versions[job.core] = job.version; }
+          }
+          done += 1;
+          this._emit({ done, message: job.kind === "runtime" ? `EmulatorJS ${job.version}` : `${job.core} ${job.version}` });
+        });
+
+        this._emit({ phase: "verifying", message: "Checking the new emulators…" });
+        for (const c of ALL_CORES) {
+          const want = `${c}${THREAD_CORES.has(c) ? "-thread" : ""}-wasm.data`;
+          if (!fs.existsSync(path.join(data, "cores", want))) throw new Error(`The ${c} package is missing ${want}.`);
+        }
+        for (const f of ["loader.js", "emulator.min.js", "emulator.min.css"]) {
+          if (!fs.existsSync(path.join(data, f))) throw new Error(`The runtime package is missing ${f}.`);
+        }
+
+        const manifest = { id, runtime: runtime.version, cores: versions, installedAt: new Date().toISOString() };
+        await fsp.writeFile(path.join(staging, "manifest.json"), JSON.stringify(manifest, null, 2));
+        await fsp.rename(staging, path.join(this.userDir, id));
+        staging = null;
+        await this._setActive(id);
+        await this._prune();
+        if (a?.runtime !== runtime.version) changes.push({ name: "EmulatorJS runtime", from: a?.runtime || null, to: runtime.version });
+        for (const c of ALL_CORES) if (a?.cores?.[c] !== versions[c]) changes.push({ name: c, from: a?.cores?.[c] || null, to: versions[c] });
+        this.log.info?.(`emulators: switched to ${id}`);
+      }
+
+      // Desktop emulators: each one unpacks into its own folder and switches on its own.
+      const nativeDone = [];
+      try {
+        for (const n of nativeJobs) {
+          this._emit({ phase: "downloading", message: `${n.name} ${n.to}` });
+          await this.native.install(n.id, n.release, { onProgress: (message) => this._emit({ message }) });
+          nativeDone.push(n.id);
+          changes.push({ name: n.name, from: n.from, to: n.to });
+          done += 1;
+          this._emit({ done });
+        }
+      } finally {
+        await fsp.writeFile(path.join(this.userDir, "last-update.json"), JSON.stringify({ web: webChanged, native: nativeDone, at: new Date().toISOString() }));
+      }
+
       this._emit({ running: false, phase: "done", message: changes.length ? `Updated ${changes.length} emulator${changes.length === 1 ? "" : "s"}.` : "Reinstalled every emulator.", check: { checkedAt: new Date().toISOString(), runtime: runtime.version, changes: [], upToDate: true } });
-      this.log.info?.(`emulators: switched to ${id}`);
       return { updated: true, changes, summary: this.summary() };
     } catch (e) {
       if (staging) await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
@@ -196,11 +221,29 @@ export class Emulators {
     this._active = null;
   }
 
+  _lastUpdate() { return this.userDir ? this._readJson(path.join(this.userDir, "last-update.json")) : null; }
+
+  async _nativeCheck() {
+    if (!this.native) return [];
+    try { return await this.native.check(); } catch (e) { this.log.warn?.(`desktop emulators: ${e.message}`); return []; }
+  }
+
+  // Undo the last press of Update: whichever emulators it changed go back to what was there before.
   async rollback() {
     if (this.state.running) throw new Error("An update is running.");
+    const last = this._lastUpdate();
+    let undone = 0;
+    for (const id of last?.native || []) if (await this.native?.rollback(id)) undone++;
     const a = this.active();
     const prev = this.listInstalls().find((i) => i.id !== a?.id);
+    if (last && (!last.web || !prev)) {
+      if (!undone) throw new Error("There's no earlier version to go back to.");
+      await fsp.rm(path.join(this.userDir, "last-update.json"), { force: true });
+      this._emit({ phase: "done", message: "Previous desktop emulators restored.", error: null });
+      return this.summary();
+    }
     if (!prev) throw new Error("There's no earlier version to go back to.");
+    await fsp.rm(path.join(this.userDir, "last-update.json"), { force: true }).catch(() => {});
     if (prev.source === "bundled") {
       // Going back to the built-in set: drop the pointer so the bundled install wins again.
       await fsp.rm(path.join(this.userDir, "active.json"), { force: true });

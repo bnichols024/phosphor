@@ -98,7 +98,7 @@ function welcome() {
     orbit,
     h("div.eyebrow", { style: { marginBottom: "16px" } }, "Welcome to Phosphor"),
     h("h1", "Let's fill your shelf."),
-    h("p", `${visibleSystems({ includeEmpty: true }).filter((s) => !s.locked).length} consoles are ready to play, with every emulator built in and nothing to set up. Add your games and Phosphor sorts them, finds the box art, and remembers where you left off on every device.`),
+    h("p", `${visibleSystems({ includeEmpty: true }).filter((s) => !s.locked && (!s.native || store.state.desktop)).length} consoles are ready to play, with every emulator built in and nothing to set up. Add your games and Phosphor sorts them, finds the box art, and remembers where you left off on every device.`),
     h("div", { style: { display: "flex", gap: "12px", flexWrap: "wrap" } },
       h("button.btn.primary.big", { "data-nav": "", onclick: () => window.phosphor.pickFiles() }, ic("upload"), "Add games"),
       h("button.btn.big", { "data-nav": "", onclick: () => freeGamesSheet() }, ic("gift"), "Get free games"),

@@ -20,7 +20,7 @@ file, and one button keeps every emulator up to date.
 | Controllers | Configure per device | Basic | Plug in and go, the whole UI works with a controller, and **your phone is a controller** (scan a QR code, up to 4 players) |
 | Multi-disc games | Write .m3u files | Write .m3u files | Grouped automatically, disc swapping just works |
 | Players | One | Accounts | Netflix-style players, each with saves, favorites and play stats |
-| First run | Empty | Empty | "Get free games" installs 9 great free games in one click, including the full Freedoom shooters |
+| First run | Empty | Empty | "Get free games" installs 12 great free games in one click, including the full Freedoom shooters and three Dreamcast games |
 | Looks | Text lists or theme packs | Plain | Real studio photos of every console's controller, glowing in its own colour |
 
 Full feature-by-feature comparison with RetroArch, EmulatorJS, RomM, LaunchBox, ES-DE/EmuDeck and
@@ -46,6 +46,13 @@ Genesis/Mega Drive, Game Gear, SG-1000, 32X, Saturn (beta), PlayStation, PSP (be
 Atari 2600/5200/7800, Jaguar (beta), TurboGrafx-16/PC Engine, Neo Geo Pocket, WonderSwan, Arcade
 (FinalBurn Neo), Commodore 64, Commodore 128, VIC-20, Plus/4, PET, Amiga (beta), DOS, Doom (and Doom
 mods), ZX Spectrum, ZX81, Amstrad CPC.
+
+**In the desktop app**, Phosphor also plays the consoles no browser can, using the full desktop
+emulators it ships with: Dreamcast (Flycast), GameCube and Wii (Dolphin). They open full screen,
+controllers work without setup (Xbox-style pads on Windows), saves stay in your Phosphor folder,
+and the same Update button keeps them current. PS2, PS3, Wii U, Switch, 3DS, Xbox, Xbox 360, Vita
+and PS4 are next. In the server version those games show up in the library with a note to play
+them in the desktop app.
 
 Consoles that cannot start without their maker's copyrighted BIOS (Sega CD, TurboGrafx-CD, 3DO,
 ColecoVision, Atari Lynx) are left out. If you own one of those BIOS files, drop it in and that

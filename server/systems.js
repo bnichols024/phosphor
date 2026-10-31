@@ -9,6 +9,7 @@
 
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import { NATIVE } from "./native/catalog.js";
 
 // Real photos of each console's controller (or the device, for handhelds and computers), made by
 // tools/fetch-controller-photos.mjs. Cache-busted by file time so a new photo shows up at once.
@@ -93,6 +94,24 @@ export const SYSTEMS = [
     meta: "Nintendo - Virtual Boy", thumbs: ["Nintendo - Virtual Boy"],
     color: "#ef4444", icon: "vb", pad: "vb", status: "great", box: 0.72,
   },
+  {
+    id: "gamecube", name: "Nintendo GameCube", short: "GameCube", maker: "Nintendo", year: 2001, kind: "console",
+    folder: "GameCube", aliases: ["gamecube", "gc", "ngc", "nintendogamecube"],
+    exts: ["gcm", "dol"], discExts: ["iso", "rvz", "gcz", "wia", "ciso"], core: null, cores: [], native: "dolphin",
+    dats: [REDUMP("Nintendo - GameCube")], disc: true,
+    meta: "Nintendo - GameCube", thumbs: ["Nintendo - GameCube"],
+    color: "#7c3aed", icon: "disc", pad: "snes", status: "great", box: 0.71,
+    builtinBios: "GameCube BIOS replacement built into Dolphin",
+  },
+  {
+    id: "wii", name: "Nintendo Wii", short: "Wii", maker: "Nintendo", year: 2006, kind: "console",
+    folder: "Wii", aliases: ["wii", "nintendowii"],
+    exts: ["wbfs"], discExts: ["iso", "rvz", "gcz", "wia", "wad"], core: null, cores: [], native: "dolphin",
+    dats: [REDUMP("Nintendo - Wii")], disc: true,
+    meta: "Nintendo - Wii", thumbs: ["Nintendo - Wii"],
+    color: "#94a3b8", icon: "disc", pad: "snes", status: "great", box: 0.71,
+    builtinBios: "Wii system software replacement built into Dolphin",
+  },
   // ---- Sega ----
   {
     id: "sms", name: "Sega Master System", short: "Master System", maker: "Sega", year: 1986, kind: "console",
@@ -157,6 +176,15 @@ export const SYSTEMS = [
       { name: "bios_CD_E.bin", md5: "e66fa1dc5820d254611fdcdba0662372", label: "EU Mega-CD BIOS" },
       { name: "bios_CD_J.bin", md5: "278a9397d192149e84e820ac621a8edd", label: "JP Mega-CD BIOS" },
     ] },
+  },
+  {
+    id: "dreamcast", name: "Sega Dreamcast", short: "Dreamcast", maker: "Sega", year: 1998, kind: "console",
+    folder: "Dreamcast", aliases: ["dreamcast", "dc", "segadreamcast"],
+    exts: ["gdi", "cdi"], discExts: ["chd", "cue", "m3u"], core: null, cores: [], native: "flycast",
+    dats: [REDUMP("Sega - Dreamcast")], disc: true,
+    meta: "Sega - Dreamcast", thumbs: ["Sega - Dreamcast"],
+    color: "#f97316", icon: "disc", pad: "saturn", status: "great", box: 1,
+    builtinBios: "Dreamcast BIOS replacement built into Flycast",
   },
   // ---- Sony ----
   {
@@ -437,8 +465,10 @@ export function publicSystem(s) {
   return {
     id: s.id, name: s.name, short: s.short, maker: s.maker, year: s.year, kind: s.kind,
     folder: s.folder, exts: [...s.exts, ...(s.discExts || [])], color: s.color, icon: s.icon, photo: photoUrl(s.id),
-    status: s.status, note: s.note || null, disc: !!s.disc, arcade: !!s.arcade, box: s.box,
+    core: s.core, status: s.status, note: s.note || null, disc: !!s.disc, arcade: !!s.arcade, box: s.box,
     pad: s.pad, needsBios: !!s.bios?.required, threads: !!s.threads,
+    // Consoles played in a desktop emulator (desktop app only) instead of in the browser.
+    native: s.native || null, nativeName: s.native ? NATIVE[s.native].name : null,
     biosFiles: s.bios?.files?.map((f) => ({ name: f.name, label: f.label })) || [],
     // How this console's BIOS is handled: a free BIOS we ship, one built into the emulator,
     // not needed at all, or (5 systems) your own dump required.

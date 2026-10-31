@@ -34,7 +34,21 @@ async function startServer() {
   const lan = lanAddresses()[0];
   if (lan) process.env.PHOSPHOR_PUBLIC_URL = `http://${lan}:${port}`;
   process.env.PHOSPHOR_DESKTOP = "1";
-  server = await start({ root: libraryRoot(), port, host: "0.0.0.0", bundledEmulators: bundled });
+  // Desktop emulators (Dreamcast, GameCube, Wii...) ship in resources/native; updates go to this
+  // computer's app-data folder, never to the library (which may be a network share).
+  const native = {
+    bundledDir: app.isPackaged ? path.join(process.resourcesPath, "native") : path.join(appRoot, "vendor", "native"),
+    userDir: path.join(app.getPath("userData"), "native"),
+    // The emulator opens full screen on top; when it closes, Phosphor comes back to the front.
+    onExit: () => {
+      if (!win) return;
+      if (win.isMinimized()) win.restore();
+      win.show();
+      if (process.platform === "darwin") app.focus({ steal: true });
+      win.focus();
+    },
+  };
+  server = await start({ root: libraryRoot(), port, host: "0.0.0.0", bundledEmulators: bundled, native });
   return server.port;
 }
 

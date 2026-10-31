@@ -41,6 +41,9 @@ async function sniffDisc(file) {
   const s0 = ascii(head, data0, 32);
   if (s0.startsWith("SEGADISCSYSTEM")) return "segacd";
   if (s0.startsWith("SEGA SEGASATURN")) return "saturn";
+  if (s0.startsWith("SEGA SEGAKATANA")) return "dreamcast";
+  const nin = gameCubeOrWii(head);
+  if (nin) return nin;
   // ISO9660 primary volume descriptor lives in sector 16.
   const pvd = raw ? 16 * 2352 + data0 : 16 * 2048;
   const pvdBuf = await readHead(file, 64, pvd);
@@ -58,6 +61,41 @@ async function sniffDisc(file) {
     if (big.includes("PC Engine CD-ROM SYSTEM", 0, "latin1")) return "pcecd";
   }
   return null;
+}
+
+// GameCube and Wii discs carry a magic number in their header.
+function gameCubeOrWii(buf, off = 0) {
+  if (buf.length < off + 0x20) return null;
+  if (buf.readUInt32BE(off + 0x1c) === 0xc2339f3d) return "gamecube";
+  if (buf.readUInt32BE(off + 0x18) === 0x5d1c9ea3) return "wii";
+  return null;
+}
+
+// Dolphin's compressed formats (RVZ, WIA, GCZ, CISO), WBFS, and .wad (Wii channel or Doom data).
+async function sniffNintendo(file, ext) {
+  const head = await readHead(file, 0x8100);
+  if (head.length < 8) return null;
+  const magic = ascii(head, 0, 4);
+  if (ext === "wad") {
+    if (magic === "IWAD" || magic === "PWAD") return "doom";
+    if (head.readUInt32BE(0) === 0x20 && ["Is", "ib", "Bk"].includes(ascii(head, 4, 2))) return "wii";
+    return null;
+  }
+  if (magic === "WBFS") return "wii";
+  if ((magic === "RVZ\x01" || magic === "WIA\x01") && head.length >= 0x4c) return { 1: "gamecube", 2: "wii" }[head.readUInt32BE(0x48)] || null;
+  if (head.readUInt32LE(0) === 0xb10bc001) return { 0: "gamecube", 1: "wii" }[head.readUInt32LE(4)] || null;
+  if (magic === "CISO") return gameCubeOrWii(head, 0x8000);
+  return gameCubeOrWii(head);
+}
+
+// The 4-character game code a GameCube/Wii disc starts with (GALE = Melee, USA), wherever the
+// image format keeps its copy of the disc header.
+async function nintendoCode(file, ext) {
+  const off = { rvz: 0x58, wia: 0x58, wbfs: 0x200, ciso: 0x8000 }[ext] ?? 0;
+  if (ext === "gcz" || ext === "wad" || ext === "dol") return null; // compressed or no disc header
+  const b = await readHead(file, 4, off);
+  const code = ascii(b, 0, 4);
+  return /^[A-Z0-9]{4}$/.test(code) ? code : null;
 }
 
 // PlayStation / PSP disc serial (e.g. SLUS00594) from the first few MB, for exact matching.
@@ -88,6 +126,10 @@ export async function referencedFiles(file) {
     const text = await fsp.readFile(file, "utf8");
     if (ext === "cue") return cueFiles(text, dir);
     if (ext === "ccd") return [file.replace(/\.ccd$/i, ".img"), file.replace(/\.ccd$/i, ".sub")];
+    if (ext === "gdi") {
+      // Dreamcast: "<track> <lba> <type> <sector size> <file> <offset>", file name maybe quoted.
+      return text.split(/\r?\n/).slice(1).map((l) => l.trim().match(/^\d+\s+\d+\s+\d+\s+\d+\s+(?:"([^"]+)"|(\S+))/)).filter(Boolean).map((m) => path.join(dir, m[1] || m[2]));
+    }
     if (ext === "m3u") {
       const out = [];
       for (const line of text.split(/\r?\n/)) {
@@ -136,6 +178,12 @@ export async function identify(file, { folderSystem = null, gamedb, arcadeHint =
   if (ext === "exe") {
     const head = await readHead(file, 8);
     if (ascii(head, 0, 8) === "PS-X EXE") { system = "psx"; reason = "header"; }
+  }
+
+  // 0b. GameCube / Wii images (and .wad, which is a Wii channel or Doom game data).
+  if (!system && ["rvz", "wia", "gcz", "ciso", "wbfs", "wad", "gcm"].includes(ext)) {
+    system = await sniffNintendo(file, ext).catch(() => null);
+    if (system) reason = "header";
   }
 
   // 1. Extension that only one system uses.
@@ -253,7 +301,11 @@ export async function identify(file, { folderSystem = null, gamedb, arcadeHint =
       }
     }
   }
-  if (!match && serial) {
+  if ((system === "gamecube" || system === "wii") && !serial) {
+    serial = await nintendoCode(file, ext).catch(() => null);
+    if (serial) match = gamedb.bySerialPrefix(system, `${system === "gamecube" ? "DLDOL" : "RVL"}${serial}`);
+  }
+  if (!match && serial && system !== "gamecube" && system !== "wii") {
     match = gamedb.bySerial(system, serial);
     // Homebrew built with the PSP SDK carries its default disc id (LocoRoco's), and other
     // eboots reuse ids too: only trust an eboot's serial when the file name roughly agrees.

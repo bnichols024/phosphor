@@ -109,15 +109,20 @@ async function emulators(root) {
   const tableHost = h("div");
   const table = () => {
     const cores = summary.active?.cores || {};
-    tableHost.replaceChildren(h("table.core-table", h("tbody", store.systemList.map((s) => h("tr",
-      h("td", h("span.sw", { "--c": s.color }), s.name),
-      h("td", { style: { color: "var(--text-2)" } }, coreName(s)),
-      h("td", cores[coreOf(s)] ? `v${cores[coreOf(s)]}` : "—"))))));
+    const native = Object.fromEntries((summary.native || []).map((n) => [n.id, n]));
+    tableHost.replaceChildren(h("table.core-table", h("tbody", store.systemList.map((s) => {
+      const n = s.native && native[s.native];
+      const version = s.native ? (n?.version ? `v${n.version}` : store.state.desktop ? "not installed" : "desktop app") : cores[s.core] ? `v${cores[s.core]}` : "—";
+      return h("tr",
+        h("td", h("span.sw", { "--c": s.color }), s.name),
+        h("td", { style: { color: "var(--text-2)" } }, s.native ? s.nativeName : coreName(s.core), s.native ? h("span.chip", { style: { marginLeft: "8px" } }, "Desktop") : null),
+        h("td", version));
+    }))));
   };
   table();
 
   root.append(hero,
-    h("div.card", h("h3", "What's installed"), h("p", "Every console's emulator ships with Phosphor and works offline. Update pulls the newest versions of all of them at once from the EmulatorJS project."), tableHost));
+    h("div.card", h("h3", "What's installed"), h("p", "Every console's emulator ships with Phosphor and works offline. Update pulls the newest versions of all of them at once: the in-browser emulators from the EmulatorJS project, and in the desktop app the full desktop emulators (Dolphin, Flycast) from their makers."), tableHost));
 
   if (!summary.state.running) {
     api.post("/api/emulators/check").then((check) => { summary = { ...summary, state: { ...summary.state, check, lastCheck: check.checkedAt } }; paint(); }).catch(() => {});
@@ -125,9 +130,8 @@ async function emulators(root) {
   return () => window.removeEventListener("phosphor:emulators", onProgress);
 }
 
-const CORE_NAMES = { fceumm: "FCEUmm", snes9x: "Snes9x", mupen64plus_next: "Mupen64Plus-Next", gambatte: "Gambatte", mgba: "mGBA", desmume2015: "DeSmuME", melonds: "melonDS", beetle_vb: "Beetle VB", genesis_plus_gx: "Genesis Plus GX", picodrive: "PicoDrive", yabause: "Yabause", pcsx_rearmed: "PCSX ReARMed", ppsspp: "PPSSPP", stella2014: "Stella", a5200: "a5200", prosystem: "ProSystem", virtualjaguar: "Virtual Jaguar", handy: "Handy", mednafen_pce: "Beetle PCE", mednafen_ngp: "Beetle NeoPop", mednafen_wswan: "Beetle Cygne", gearcoleco: "Gearcoleco", opera: "Opera", fbneo: "FinalBurn Neo", vice_x64sc: "VICE", puae: "PUAE", dosbox_pure: "DOSBox Pure", fuse: "Fuse", cap32: "Caprice32" };
-const coreOf = (s) => ({ nes: "fceumm", snes: "snes9x", n64: "mupen64plus_next", gb: "gambatte", gbc: "gambatte", gba: "mgba", nds: "desmume2015", vb: "beetle_vb", sms: "genesis_plus_gx", genesis: "genesis_plus_gx", gamegear: "genesis_plus_gx", sg1000: "genesis_plus_gx", "32x": "picodrive", saturn: "yabause", segacd: "genesis_plus_gx", psx: "pcsx_rearmed", psp: "ppsspp", atari2600: "stella2014", atari5200: "a5200", atari7800: "prosystem", jaguar: "virtualjaguar", lynx: "handy", pce: "mednafen_pce", pcecd: "mednafen_pce", ngp: "mednafen_ngp", wonderswan: "mednafen_wswan", coleco: "gearcoleco", "3do": "opera", arcade: "fbneo", c64: "vice_x64sc", amiga: "puae", dos: "dosbox_pure", zxspectrum: "fuse", cpc: "cap32" }[s.id]);
-const coreName = (s) => CORE_NAMES[coreOf(s)] || coreOf(s);
+const CORE_NAMES = { fceumm: "FCEUmm", snes9x: "Snes9x", mupen64plus_next: "Mupen64Plus-Next", gambatte: "Gambatte", mgba: "mGBA", desmume2015: "DeSmuME", melonds: "melonDS", beetle_vb: "Beetle VB", genesis_plus_gx: "Genesis Plus GX", picodrive: "PicoDrive", yabause: "Yabause", pcsx_rearmed: "PCSX ReARMed", ppsspp: "PPSSPP", stella2014: "Stella", a5200: "a5200", prosystem: "ProSystem", virtualjaguar: "Virtual Jaguar", handy: "Handy", mednafen_pce: "Beetle PCE", mednafen_ngp: "Beetle NeoPop", mednafen_wswan: "Beetle Cygne", gearcoleco: "Gearcoleco", opera: "Opera", fbneo: "FinalBurn Neo", vice_x64sc: "VICE", puae: "PUAE", dosbox_pure: "DOSBox Pure", fuse: "Fuse", cap32: "Caprice32", vice_x128: "VICE", vice_xvic: "VICE", vice_xplus4: "VICE", vice_xpet: "VICE", "81": "EightyOne", prboom: "PrBoom" };
+const coreName = (c) => CORE_NAMES[c] || c;
 
 // ---------------- Library ----------------
 async function library(root) {
