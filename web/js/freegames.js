@@ -1,8 +1,7 @@
 // "Free games" sheet: one-click installs of homebrew games their authors give away.
 import { api } from "./api.js";
 import { store, go } from "./store.js";
-import { h, ic, svg, sheet, toast, toastError } from "./ui.js";
-import { consoleIcon } from "./icons.js";
+import { h, ic, consoleArt, sheet, toast, toastError } from "./ui.js";
 import { sound } from "./sound.js";
 
 export async function freeGamesSheet() {
@@ -11,8 +10,7 @@ export async function freeGamesSheet() {
   const draw = () => {
     list.replaceChildren(...games.map((g) => {
       const sys = store.systems[g.system];
-      const i = svg(consoleIcon(sys?.icon));
-      i.style.cssText = "width:34px;height:34px;color:#fff";
+      const i = consoleArt(sys, "fg-art");
       const btn = g.installed
         ? h("button.btn.small", { "data-nav": "", onclick: () => { s.close(); if (g.gameId) go(`/game/${g.gameId}`); else go(`/system/${g.system}`); } }, ic("play"), "Open")
         : h("button.btn.small.primary", { "data-nav": "", onclick: async (e) => {

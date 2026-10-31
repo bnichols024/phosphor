@@ -5,6 +5,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { BY_ID } from "./systems.js";
+import { listZip, readZipEntry } from "./lib/zip.js";
 
 export const FREE_GAMES = [
   { id: "nova", title: "Nova the Squirrel", system: "nes", file: "Nova the Squirrel.nes", year: 2018, genre: "Platformer",
@@ -35,6 +36,14 @@ export const FREE_GAMES = [
     url: "https://github.com/andwn/cave-story-md/releases/download/v0.8.8/doukutsu-en.gen",
     author: "andwn (port of Studio Pixel's freeware classic)", license: "Free, non-commercial", home: "https://github.com/andwn/cave-story-md",
     blurb: "The legendary indie action-adventure, rebuilt for the Sega Genesis. Free to play, not for sale." },
+  { id: "freedoom1", title: "Freedoom: Phase 1", system: "doom", file: "Freedoom Phase 1.wad", year: 2024, genre: "First-person shooter",
+    url: "https://github.com/freedoom/freedoom/releases/download/v0.13.0/freedoom-0.13.0.zip", unzip: "freedoom1.wad",
+    author: "The Freedoom project", license: "BSD-3-Clause", home: "https://freedoom.github.io",
+    blurb: "A complete, free four-episode shooter for the Doom engine: new monsters, weapons, music and 36 levels." },
+  { id: "freedoom2", title: "Freedoom: Phase 2", system: "doom", file: "Freedoom Phase 2.wad", year: 2024, genre: "First-person shooter",
+    url: "https://github.com/freedoom/freedoom/releases/download/v0.13.0/freedoom-0.13.0.zip", unzip: "freedoom2.wad",
+    author: "The Freedoom project", license: "BSD-3-Clause", home: "https://freedoom.github.io",
+    blurb: "32 more free levels in the style of Doom II, with the super shotgun and bigger, meaner monsters." },
 ];
 
 export class FreeGames {
@@ -63,13 +72,20 @@ export class FreeGames {
     if (this.busy.has(id)) return { busy: true };
     this.busy.add(id);
     try {
-      const res = await fetch(g.url, { signal: AbortSignal.timeout(60000) });
+      const res = await fetch(g.url, { signal: AbortSignal.timeout(180000) });
       if (!res.ok) throw new Error(`download failed (${res.status})`);
-      const buf = Buffer.from(await res.arrayBuffer());
+      let buf = Buffer.from(await res.arrayBuffer());
       if (buf.length < 1024) throw new Error("download was empty");
       await fsp.mkdir(path.dirname(dest), { recursive: true });
       const tmp = path.join(path.dirname(dest), `.dl-${crypto.randomBytes(4).toString("hex")}`);
       await fsp.writeFile(tmp, buf);
+      if (g.unzip) {
+        // Released as a zip: keep just the one file the game needs.
+        const entry = (await listZip(tmp))?.find((e) => path.basename(e.name) === g.unzip);
+        buf = entry && await readZipEntry(tmp, entry);
+        if (!buf || buf.length !== entry.usize) { await fsp.rm(tmp, { force: true }); throw new Error(`${g.unzip} missing from the download`); }
+        await fsp.writeFile(tmp, buf);
+      }
       await fsp.rename(tmp, dest);
       this.log.info?.(`free games: installed ${g.title}`);
       return { installed: true };

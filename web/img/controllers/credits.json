@@ -1,0 +1,458 @@
+{
+  "32x": {
+    "name": "Sega 32X",
+    "file": "Sega-Genesis-6But-Cont.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Sega-Genesis-6But-Cont.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "3do": {
+    "name": "3DO Interactive Multiplayer",
+    "file": "3DO-101M-Controller.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:3DO-101M-Controller.jpg",
+    "artist": "Evan-Amos",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "3ds": {
+    "name": "Nintendo 3DS",
+    "file": "Nintendo-3DS-AquaOpen.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Nintendo-3DS-AquaOpen.png",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "amiga": {
+    "name": "Commodore Amiga",
+    "file": "Amiga500 system.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Amiga500_system.jpg",
+    "artist": "Bill Bertram",
+    "license": "CC BY-SA 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.5"
+  },
+  "arcade": {
+    "name": "Arcade",
+    "file": "Neo-Geo-AES-Controller-FL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Neo-Geo-AES-Controller-FL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "atari2600": {
+    "name": "Atari 2600",
+    "file": "Atari-2600-Joystick.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Atari-2600-Joystick.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "atari5200": {
+    "name": "Atari 5200",
+    "file": "Atari-5200-Controller.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Atari-5200-Controller.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "atari7800": {
+    "name": "Atari 7800",
+    "file": "Atari-CX78-7800-Controller-FL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Atari-CX78-7800-Controller-FL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "atari800": {
+    "name": "Atari 800",
+    "file": "Atari-800XL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Atari-800XL.jpg",
+    "artist": "Evan-Amos",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "c128": {
+    "name": "Commodore 128",
+    "file": "Commodore-128.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Commodore-128.png",
+    "artist": "Evan-Amos",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "c64": {
+    "name": "Commodore 64",
+    "file": "Commodore-64-Computer-FL.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Commodore-64-Computer-FL.png",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "cd32": {
+    "name": "Amiga CD32",
+    "file": "Amiga-CD32-Controller-L.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Amiga-CD32-Controller-L.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "coleco": {
+    "name": "ColecoVision",
+    "file": "ColecoVision-Controller-FL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:ColecoVision-Controller-FL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "cpc": {
+    "name": "Amstrad CPC",
+    "file": "Amstrad CPC464.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Amstrad_CPC464.jpg",
+    "artist": "Bill Bertram",
+    "license": "CC BY-SA 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.5"
+  },
+  "doom": {
+    "name": "Doom engine games",
+    "file": "IBM PC-IMG 7271.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:IBM_PC-IMG_7271.jpg",
+    "artist": "Rama & Musée Bolo",
+    "license": "CC BY-SA 2.0 fr",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/fr/deed.en"
+  },
+  "dos": {
+    "name": "MS-DOS",
+    "file": "IBM PC-IMG 7271.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:IBM_PC-IMG_7271.jpg",
+    "artist": "Rama & Musée Bolo",
+    "license": "CC BY-SA 2.0 fr",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/fr/deed.en"
+  },
+  "dreamcast": {
+    "name": "Sega Dreamcast",
+    "file": "Sega-Dreamcast-Controller-FL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Sega-Dreamcast-Controller-FL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "gamecube": {
+    "name": "Nintendo GameCube",
+    "file": "Gamecube-controller.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Gamecube-controller.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "gamegear": {
+    "name": "Sega Game Gear",
+    "file": "Sega-Game-Gear-WB.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Sega-Game-Gear-WB.png",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "gb": {
+    "name": "Game Boy",
+    "file": "Game-Boy-FL.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Game-Boy-FL.png",
+    "artist": "Evan-Amos (background removed by another Commons user)",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "gba": {
+    "name": "Game Boy Advance",
+    "file": "Nintendo-Game-Boy-Advance-Purple-FL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Nintendo-Game-Boy-Advance-Purple-FL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "gbc": {
+    "name": "Game Boy Color",
+    "file": "Nintendo-Game-Boy-Color-FL.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Nintendo-Game-Boy-Color-FL.png",
+    "artist": "Evan-Amos, modified by Gunnar.offel",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "genesis": {
+    "name": "Sega Genesis / Mega Drive",
+    "file": "Sega-Genesis-3But-Cont.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Sega-Genesis-3But-Cont.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "intellivision": {
+    "name": "Intellivision",
+    "file": "Intellivision-Controller.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Intellivision-Controller.jpg",
+    "artist": "Evan-Amos",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "jaguar": {
+    "name": "Atari Jaguar",
+    "file": "Atari-Jaguar-Controller.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Atari-Jaguar-Controller.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "lynx": {
+    "name": "Atari Lynx",
+    "file": "Atari-Lynx-I-Handheld.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Atari-Lynx-I-Handheld.png",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "n64": {
+    "name": "Nintendo 64",
+    "file": "N64-Controller-Gray.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:N64-Controller-Gray.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "nds": {
+    "name": "Nintendo DS",
+    "file": "Nintendo-DS-Lite-Black-Open.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Nintendo-DS-Lite-Black-Open.png",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "neogeocd": {
+    "name": "Neo Geo CD",
+    "file": "Neo-Geo-CD-Controller-FL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Neo-Geo-CD-Controller-FL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "nes": {
+    "name": "Nintendo Entertainment System",
+    "file": "Nintendo-Entertainment-System-NES-Controller-FL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Nintendo-Entertainment-System-NES-Controller-FL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "ngp": {
+    "name": "Neo Geo Pocket / Color",
+    "file": "Neo-Geo-Pocket-Color-Blue-Left.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Neo-Geo-Pocket-Color-Blue-Left.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "pce": {
+    "name": "TurboGrafx-16 / PC Engine",
+    "file": "NEC-TurboGrafx-16-Controller-FR.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:NEC-TurboGrafx-16-Controller-FR.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "pcecd": {
+    "name": "TurboGrafx-CD / PC Engine CD",
+    "file": "NEC-TurboDuo-Controller-L.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:NEC-TurboDuo-Controller-L.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "pet": {
+    "name": "Commodore PET",
+    "file": "Commodore 2001 Series-IMG 0448b.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Commodore_2001_Series-IMG_0448b.png",
+    "artist": "OliverGalvin",
+    "license": "CC BY-SA 2.0 fr",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/fr/deed.en"
+  },
+  "plus4": {
+    "name": "Commodore Plus/4",
+    "file": "Commodore Plus 4.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Commodore_Plus_4.jpg",
+    "artist": "Foofy (English Wikipedia)",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/"
+  },
+  "ps2": {
+    "name": "PlayStation 2",
+    "file": "PlayStation2-DualShock2.png",
+    "page": "https://commons.wikimedia.org/wiki/File:PlayStation2-DualShock2.png",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "ps3": {
+    "name": "PlayStation 3",
+    "file": "PlayStation3-DualShock3.png",
+    "page": "https://commons.wikimedia.org/wiki/File:PlayStation3-DualShock3.png",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "ps4": {
+    "name": "PlayStation 4",
+    "file": "DualShock_4.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:DualShock_4.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "psp": {
+    "name": "PlayStation Portable",
+    "file": "PSP-1000.png",
+    "page": "https://commons.wikimedia.org/wiki/File:PSP-1000.png",
+    "artist": "Evan-Amos, edited by Alphathon",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "psx": {
+    "name": "PlayStation",
+    "file": "PSX-Original-Controller.png",
+    "page": "https://commons.wikimedia.org/wiki/File:PSX-Original-Controller.png",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "saturn": {
+    "name": "Sega Saturn",
+    "file": "Sega-Saturn-Controller-NA-Mk-II-FL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Sega-Saturn-Controller-NA-Mk-II-FL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "segacd": {
+    "name": "Sega CD / Mega-CD",
+    "file": "Sega-CD-Model2-Set.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Sega-CD-Model2-Set.png",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "sg1000": {
+    "name": "Sega SG-1000",
+    "file": "Sega-SG-1000-Console-Set.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Sega-SG-1000-Console-Set.png",
+    "artist": "Evan-Amos",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "sms": {
+    "name": "Sega Master System",
+    "file": "Sega-Master-System-Controllers.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Sega-Master-System-Controllers.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "snes": {
+    "name": "Super Nintendo",
+    "file": "Nintendo-Super-NES-Controller.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Nintendo-Super-NES-Controller.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "switch": {
+    "name": "Nintendo Switch",
+    "file": "Nintendo-Switch-JoyCon-Grip-FL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Nintendo-Switch-JoyCon-Grip-FL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "vb": {
+    "name": "Virtual Boy",
+    "file": "Virtual-Boy-Controller.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Virtual-Boy-Controller.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "vectrex": {
+    "name": "Vectrex",
+    "file": "GCE-Vectrex-Controller-FL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:GCE-Vectrex-Controller-FL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "vic20": {
+    "name": "Commodore VIC-20",
+    "file": "Commodore-VIC-20-FL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Commodore-VIC-20-FL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "vita": {
+    "name": "PlayStation Vita",
+    "file": "PlayStation-Vita-1101-FL.png",
+    "page": "https://commons.wikimedia.org/wiki/File:PlayStation-Vita-1101-FL.png",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "wii": {
+    "name": "Nintendo Wii",
+    "file": "Wii-Console.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Wii-Console.png",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "wiiu": {
+    "name": "Nintendo Wii U",
+    "file": "Wii U Gamepad schwarz transparent.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Wii_U_Gamepad_schwarz_transparent.png",
+    "artist": "Mariofan13",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "wonderswan": {
+    "name": "WonderSwan / Color",
+    "file": "WonderSwan-Color-Blue-Left.png",
+    "page": "https://commons.wikimedia.org/wiki/File:WonderSwan-Color-Blue-Left.png",
+    "artist": "Evan-Amos",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "xbox": {
+    "name": "Xbox",
+    "file": "Xbox-Controller-Duke-FL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Xbox-Controller-Duke-FL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "xbox360": {
+    "name": "Xbox 360",
+    "file": "Xbox-360-Controller-Black.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Xbox-360-Controller-Black.png",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "zx81": {
+    "name": "Sinclair ZX81",
+    "file": "Sinclair-ZX81.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Sinclair-ZX81.png",
+    "artist": "Evan-Amos",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+  },
+  "zxspectrum": {
+    "name": "ZX Spectrum",
+    "file": "ZXSpectrum48k.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:ZXSpectrum48k.jpg",
+    "artist": "Bill Bertram",
+    "license": "CC BY-SA 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.5"
+  }
+}

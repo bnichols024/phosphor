@@ -181,6 +181,11 @@ export async function identify(file, { folderSystem = null, gamedb, arcadeHint =
     if (!system && cart) { system = EXT_INDEX[cart.ext][0]; crc = cart.crc; reason = "zip contents"; }
     if (!system && folderSystem && folderSystem !== "arcade") { system = folderSystem; reason = "folder"; }
     if (!system && arcadeName) { system = "arcade"; reason = "arcade set"; }
+    if (!system) {
+      // A disk or tape image several computers share (.d64, .prg, .tzx…): the checksum decides.
+      const shared = inner.find((e) => (EXT_INDEX[e.ext] || []).length > 1 && BY_ID[EXT_INDEX[e.ext][0]].kind === "computer");
+      if (shared) { const ids = EXT_INDEX[shared.ext]; system = ids.find((id) => gamedb.byCrc(id, shared.crc)) || ids[0]; crc = shared.crc; reason = "zip contents"; }
+    }
     if (!system && inner.length) {
       const bin = inner.find((e) => ["bin", "rom", "md", "gen"].includes(e.ext));
       if (bin) {
@@ -214,6 +219,14 @@ export async function identify(file, { folderSystem = null, gamedb, arcadeHint =
   if (!system && folderSystem) {
     const fs_ = BY_ID[folderSystem];
     if (fs_ && (ext === "zip" || ext === "7z" || fs_.exts.includes(ext) || (fs_.discExts || []).includes(ext))) { system = folderSystem; reason = "folder"; }
+  }
+
+  // 6. Extensions several computers share (.d64 is C64, C128, VIC-20, Plus/4 or PET): a known
+  // checksum decides, otherwise the most common machine (listed first) gets it.
+  if (!system && claim.length > 1) {
+    if (st.size <= MAX_HASH) { crc = await crcFile(file); system = claim.find((id) => gamedb.byCrc(id, crc)) || null; }
+    system ||= claim[0];
+    reason = "extension";
   }
   if (!system) return null;
   if (isCompanionOnly(ext) && BY_ID[system]?.disc) {

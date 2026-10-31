@@ -312,10 +312,18 @@ async function about(root) {
       credit("libretro cores", "FCEUmm, Snes9x, Mupen64Plus-Next, mGBA, Genesis Plus GX, PCSX ReARMed, PPSSPP, FinalBurn Neo and the rest. Each under its own open-source license.", "https://www.libretro.com"),
       credit("libretro database", "Game names, years and genres from No-Intro, Redump and FBNeo data.", "https://github.com/libretro/libretro-database"),
       credit("libretro thumbnails", "Box art, title screens and screenshots.", "https://thumbnails.libretro.com"),
+      h("button.list-item", { "data-nav": "", onclick: photoCredits }, ic("info"), h("div.grow", h("div.t", "Controller photos"), h("div.d", "Real photos from Wikimedia Commons, most by Evan-Amos (public domain). See who took each one."))),
       credit("Inter & Space Grotesk", "Fonts, SIL Open Font License.", "https://rsms.me/inter/"),
       credit("qrcode-generator", "QR codes for phone controllers. MIT.", "https://github.com/kazuhikoarase/qrcode-generator"))),
   h("div.card", h("h3", "About games and BIOS files"),
     h("p", "Phosphor doesn't include any commercial games or copyrighted BIOS files. Play games you own. Systems that would normally need a BIOS use the emulator's built-in open replacement instead.")));
+}
+async function photoCredits() {
+  const list = await fetch("/img/controllers/credits.json").then((r) => r.json()).catch(() => ({}));
+  sheet({ title: "Controller photos", sub: "From Wikimedia Commons, cut out of their backgrounds for Phosphor. Changed versions of CC BY-SA photos are shared under the same license.", wide: true,
+    body: h("div.list", Object.entries(list).map(([id, c]) => h("a.list-item", { href: c.page, target: "_blank", rel: "noopener", "data-nav": "" },
+      h("img.fg-art", { src: `/img/controllers/${id}.webp`, alt: "" }),
+      h("div.grow", h("div.t", c.name || store.systems[id]?.name || id), h("div.d", `${c.artist} · ${c.license}`))))) });
 }
 const credit = (name, text, href) => h("a.list-item", { href, target: "_blank", rel: "noopener", "data-nav": "" }, ic("info"), h("div.grow", h("div.t", name), h("div.d", text)));
 

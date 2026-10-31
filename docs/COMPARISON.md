@@ -9,7 +9,7 @@ Legend: ✅ has it · ⭐ has it and goes further · ❌ doesn't · — not appl
 
 | Feature | RetroArch | EmulatorJS | RomM | LaunchBox | ES-DE/EmuDeck | Batocera | **Phosphor** |
 |---|---|---|---|---|---|---|---|
-| Emulators included | ✅ download per core | ✅ | via EmulatorJS | ❌ bring your own | ✅ EmuDeck installs | ✅ | ⭐ 36 built in, work offline (tested: NES, SNES, N64, GB, GBC, GBA, Genesis, PS1, PSP) |
+| Emulators included | ✅ download per core | ✅ | via EmulatorJS | ❌ bring your own | ✅ EmuDeck installs | ✅ | ⭐ 42 built in (35 consoles and computers), work offline (tested: NES, SNES, N64, GB, GBC, GBA, Genesis, PS1, PSP) |
 | Update emulators | per core | manual | image update | manual | EmuDeck updater | OS update | ⭐ one Update button for all, atomic, one-click undo (tested with a fake registry, incl. failed download) |
 | Choose another emulator per game | ✅ manual | ❌ | ❌ | ✅ | ✅ | ✅ | ⭐ crash/freeze detected, "Try ParaLLEl N64" offered, choice remembered (tested) |
 | Install per device | yes | no | no | Windows | per device | own OS | ⭐ none: any browser, TV/PC/phone |
@@ -30,7 +30,7 @@ Legend: ✅ has it · ⭐ has it and goes further · ❌ doesn't · — not appl
 | ROM patches (translations, hacks) | ✅ softpatch | ❌ | ❌ | ❌ | via RetroArch | via RetroArch | ⭐ drop the .ips/.bps/.ups anywhere; it finds its game and applies on load (tested) |
 | Renamed/moved files keep history | ❌ | — | ❌ | ❌ | ❌ | ❌ | ⭐ re-linked by checksum (tested) |
 | Collections / favorites / search | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ shelves, favorites, instant search, "Surprise me" |
-| Free games out of the box | ❌ | ❌ | ❌ | ❌ | ❌ | some | ⭐ 7 open homebrew games, one click (tested) |
+| Free games out of the box | ❌ | ❌ | ❌ | ❌ | ❌ | some | ⭐ 9 free games incl. Freedoom 1 and 2, one click (tested) |
 
 ## Playing
 

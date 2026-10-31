@@ -43,7 +43,7 @@ const audioCtxs = new Set();
   };
 }
 
-const REWIND_OK = new Set(["nes", "snes", "gb", "gbc", "gba", "sms", "genesis", "gamegear", "sg1000", "pce", "ngp", "wonderswan", "atari2600", "atari5200", "atari7800", "vb", "coleco", "lynx", "c64", "zxspectrum", "cpc"]);
+const REWIND_OK = new Set(["nes", "snes", "gb", "gbc", "gba", "sms", "genesis", "gamegear", "sg1000", "pce", "ngp", "wonderswan", "atari2600", "atari5200", "atari7800", "vb", "coleco", "lynx", "c64", "c128", "vic20", "plus4", "pet", "zxspectrum", "zx81", "cpc"]);
 const FILTERS = [
   { id: "sharp", name: "Pixel perfect", desc: "Crisp, exactly as drawn", shader: "disabled" },
   { id: "smooth", name: "Smooth", desc: "Softened pixel edges", shader: "2xScaleHQ.glslp" },
@@ -140,6 +140,7 @@ function paintLoader() {
   if (art) $(".bg", loader).style.backgroundImage = `url("${art}")`;
   $(".box", loader).style.setProperty("--ar", L.system.box || 0.75);
   if (g.box) $(".box", loader).append(el("img", { src: g.box, alt: "" }));
+  else if (L.system.photo) { $(".box", loader).classList.add("photo"); $(".box", loader).append(el("img", { src: L.system.photo, alt: "" })); }
   else $(".box", loader).style.display = "none";
   $("h1", loader).textContent = g.title;
   $(".sys", loader).textContent = L.system.name;
@@ -166,7 +167,7 @@ function watchEmulatorText() {
   obs.observe(document.getElementById("game"), { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["style"] });
 }
 
-const CORE_NAMES = { mupen64plus_next: "Mupen64Plus", parallel_n64: "ParaLLEl N64", desmume2015: "DeSmuME", melonds: "melonDS", desmume: "DeSmuME (new)", pcsx_rearmed: "PCSX ReARMed", mednafen_psx_hw: "Beetle PSX", fceumm: "FCEUmm", nestopia: "Nestopia", genesis_plus_gx: "Genesis Plus GX", picodrive: "PicoDrive", smsplus: "SMS Plus", fbneo: "FinalBurn Neo", mame2003_plus: "MAME 2003-Plus" };
+const CORE_NAMES = { mupen64plus_next: "Mupen64Plus", parallel_n64: "ParaLLEl N64", desmume2015: "DeSmuME", melonds: "melonDS", desmume: "DeSmuME (new)", pcsx_rearmed: "PCSX ReARMed", mednafen_psx_hw: "Beetle PSX", fceumm: "FCEUmm", nestopia: "Nestopia", genesis_plus_gx: "Genesis Plus GX", picodrive: "PicoDrive", smsplus: "SMS Plus", fbneo: "FinalBurn Neo", mame2003_plus: "MAME 2003-Plus", vice_x64sc: "VICE", vice_x128: "VICE", vice_xvic: "VICE", vice_xplus4: "VICE", vice_xpet: "VICE", "81": "EightyOne", prboom: "PrBoom" };
 const coreName = (c) => CORE_NAMES[c] || c;
 
 let failed = false;

@@ -36,6 +36,17 @@ function append(el, children) {
 }
 export const svg = (markup) => { const t = document.createElement("template"); t.innerHTML = markup.trim(); return t.content.firstChild; };
 export const ic = (name) => svg(icon(name));
+// A console's picture: the real controller/device photo, or the drawn icon if there's no photo.
+export function consoleArt(sys, cls = "ico") {
+  if (sys?.photo) {
+    const img = h("img", { class: `${cls} photo`, src: sys.photo, alt: "", draggable: "false", decoding: "async" });
+    img.addEventListener("error", () => img.replaceWith(consoleArt({ ...sys, photo: null }, cls)), { once: true });
+    return img;
+  }
+  const el = svg(consoleIcon(sys?.icon));
+  el.classList.add(...cls.split(" "));
+  return el;
+}
 
 // ---------- formatting ----------
 export function fmtTime(sec) {
@@ -184,16 +195,11 @@ export function setAccent(hex) {
 // ---------- game cards ----------
 export function coverGen(game, sys) {
   return h("div.cover-gen", { "--sys": sys?.color || "#7c5cff" },
-    svg(consoleIcon(sys?.icon)).cloneNode(true),
+    consoleArt(sys),
     h("div.t", game.title),
     h("div.s", sys?.short || ""));
 }
-// Fix the generated cover icon class (svg() returns a bare svg).
-function genCover(game, sys) {
-  const el = coverGen(game, sys);
-  el.firstChild.classList.add("ico");
-  return el;
-}
+const genCover = coverGen;
 
 export function artImage(src, alt = "") {
   const img = h("img.art", { src, alt, loading: "lazy", decoding: "async", draggable: "false" });
@@ -252,9 +258,9 @@ export function row(title, items, { more, count, wide = false } = {}) {
     h("div.scroller", { class: wide ? "wide" : "" }, items));
 }
 
-export function emptyState({ iconSvg, title, text, actions = [] }) {
+export function emptyState({ iconSvg, art, title, text, actions = [] }) {
   return h("div.empty-state",
-    iconSvg ? h("div.big-ico", { html: iconSvg }) : null,
+    art ? h("div.big-ico.photo-wrap", art) : iconSvg ? h("div.big-ico", { html: iconSvg }) : null,
     h("h2", title), h("p", text),
     actions.length ? h("div", { style: { display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" } }, actions) : null);
 }

@@ -12,7 +12,7 @@ import { parseName, sortTitle } from "./gamedb.js";
 
 export const DROP_FOLDER = "Drop Games Here";
 // Bump when identification improves: the next startup re-checks every file once.
-export const IDENTIFY_VERSION = 2;
+export const IDENTIFY_VERSION = 3;
 const SKIP_EXTS = new Set(["txt", "nfo", "jpg", "jpeg", "png", "gif", "webp", "pdf", "srm", "sav", "state", "dat", "xml", "db", "ini", "cfg", "md", "url", "html", "htm", "sfv", "md5", "sha1", "ds_store", "lnk", "sub", "ecm", "wav", "ogg", "mp3", "flac", "aiff"]);
 const KNOWN_EXTS = new Set([...Object.keys(EXT_INDEX), ...AMBIGUOUS_EXTS, ...SYSTEMS.flatMap((s) => s.discExts || []), "tap", "sna", "dsk"]);
 

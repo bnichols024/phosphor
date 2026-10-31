@@ -27,7 +27,8 @@ const j = async (url, opts = {}) => {
 test("fresh install has a player, every console and the folder layout", async () => {
   const { body } = await j("/api/state");
   assert.equal(body.profiles.length, 1);
-  assert.equal(body.systems.length, 29, "29 consoles ready, each with its BIOS included or not needed");
+  assert.equal(body.systems.length, 35, "35 consoles ready, each with its BIOS included or not needed");
+  assert.match(body.systems.find((s) => s.id === "snes").photo, /^\/img\/controllers\/snes\.webp/, "real controller photo");
   assert.ok(fs.existsSync(path.join(root, "ROMs", "SNES")));
   assert.ok(fs.existsSync(path.join(root, "Drop Games Here")));
   assert.ok(fs.existsSync(path.join(root, "README.txt")));

@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { store, go, visibleSystems } from "../store.js";
-import { h, ic, svg, gameCard, row, fmtTime, timeAgo, plural, imageColor, hexToRgb, setAmbient } from "../ui.js";
+import { h, ic, consoleArt, gameCard, row, fmtTime, timeAgo, plural, imageColor, hexToRgb, setAmbient } from "../ui.js";
 import { consoleIcon } from "../icons.js";
 import { sound } from "../sound.js";
 import { freeGamesSheet } from "../freegames.js";
@@ -77,15 +77,13 @@ function tile(k, v, color, unit, small = false) {
 }
 
 function coverFallback(g, sys) {
-  const el = h("div.cover-gen", { "--sys": sys?.color || "#7c5cff" }, h("div.t", g.title), h("div.s", sys?.short || ""));
-  const i = svg(consoleIcon(sys?.icon)); i.classList.add("ico"); el.prepend(i);
-  return el;
+  return h("div.cover-gen", { "--sys": sys?.color || "#7c5cff" }, consoleArt(sys), h("div.t", g.title), h("div.s", sys?.short || ""));
 }
 
 export function sysCard(s) {
-  const i = svg(consoleIcon(s.icon)); i.classList.add("ico");
-  return h("a.syscard", { href: `/system/${s.id}`, "data-nav": "", "--sys": s.color, class: s.count ? "" : "empty" },
-    i,
+  return h("a.syscard", { href: `/system/${s.id}`, "data-nav": "", "--sys": s.color, class: [s.count ? "" : "empty", s.photo ? "has-photo" : ""].filter(Boolean).join(" ") },
+    h("div.glowspot"),
+    consoleArt(s),
     s.locked ? h("span.chip.lock", ic("lock"), "Needs BIOS") : null,
     h("div.maker", s.maker),
     h("div.name", s.short === s.name || s.short.length > 14 ? s.name : s.short),
@@ -94,7 +92,8 @@ export function sysCard(s) {
 
 function welcome() {
   const root = store.state.library;
-  const orbit = h("div.orbit", { html: consoleIcon("pad-snes") });
+  const fan = ["snes", "genesis", "psx", "n64"].map((id) => store.systems[id]).filter((s) => s?.photo);
+  const orbit = fan.length ? h("div.orbit.fan", fan.map((s, i) => consoleArt(s, `ico f${i}`))) : h("div.orbit", { html: consoleIcon("pad-snes") });
   return h("section.welcome",
     orbit,
     h("div.eyebrow", { style: { marginBottom: "16px" } }, "Welcome to Phosphor"),

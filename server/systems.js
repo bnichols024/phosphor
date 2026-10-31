@@ -7,6 +7,16 @@
 // BIOS folder. Phosphor never ships copyrighted BIOS files; every other system uses an emulator with
 // a built-in open replacement (HLE BIOS), so it needs no BIOS at all.
 
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+
+// Real photos of each console's controller (or the device, for handhelds and computers), made by
+// tools/fetch-controller-photos.mjs. Cache-busted by file time so a new photo shows up at once.
+const PHOTO_DIR = fileURLToPath(new URL("../web/img/controllers/", import.meta.url));
+const photoUrl = (id) => {
+  try { return `/img/controllers/${id}.webp?v=${Math.round(fs.statSync(`${PHOTO_DIR}${id}.webp`).mtimeMs / 1000).toString(36)}`; } catch { return null; }
+};
+
 const NOINTRO = (n) => `metadat/no-intro/${n}.dat`;
 const REDUMP = (n) => `metadat/redump/${n}.dat`;
 
@@ -300,6 +310,40 @@ export const SYSTEMS = [
     builtinBios: "Commodore ROMs included with VICE",
   },
   {
+    id: "c128", name: "Commodore 128", short: "C128", maker: "Commodore", year: 1985, kind: "computer",
+    folder: "Commodore 128", aliases: ["c128", "commodore128"],
+    exts: ["d64", "d71", "d81", "prg", "t64", "crt", "g64", "p00"], core: "vice_x128", cores: ["vice_x128"],
+    dats: [], meta: null, thumbs: ["Commodore - 64"],
+    color: "#8b5cf6", icon: "computer", pad: "c64", status: "great", box: 0.72,
+    builtinBios: "Commodore ROMs included with VICE",
+  },
+  {
+    id: "vic20", name: "Commodore VIC-20", short: "VIC-20", maker: "Commodore", year: 1980, kind: "computer",
+    folder: "VIC-20", aliases: ["vic20", "vic", "commodorevic20"],
+    exts: ["20", "40", "60", "a0", "b0", "crt", "prg", "d64", "t64", "tap"], core: "vice_xvic", cores: ["vice_xvic"],
+    dats: [NOINTRO("Commodore - VIC-20")],
+    meta: "Commodore - VIC-20", thumbs: ["Commodore - VIC-20"],
+    color: "#c084fc", icon: "computer", pad: "c64", status: "great", box: 0.72,
+    builtinBios: "Commodore ROMs included with VICE",
+  },
+  {
+    id: "plus4", name: "Commodore Plus/4", short: "Plus/4", maker: "Commodore", year: 1984, kind: "computer",
+    folder: "Commodore Plus-4", aliases: ["plus4", "c16", "commodoreplus4", "commodore16"],
+    exts: ["prg", "d64", "t64", "tap", "crt"], core: "vice_xplus4", cores: ["vice_xplus4"],
+    dats: [NOINTRO("Commodore - Plus-4")],
+    meta: "Commodore - Plus-4", thumbs: ["Commodore - Plus-4"],
+    color: "#64748b", icon: "computer", pad: "c64", status: "great", box: 0.72,
+    builtinBios: "Commodore ROMs included with VICE",
+  },
+  {
+    id: "pet", name: "Commodore PET", short: "PET", maker: "Commodore", year: 1977, kind: "computer",
+    folder: "Commodore PET", aliases: ["pet", "commodorepet", "cbm"],
+    exts: ["prg", "d64", "d80", "d82", "t64", "tap"], core: "vice_xpet", cores: ["vice_xpet"],
+    dats: [], meta: null, thumbs: ["Commodore - PET"],
+    color: "#a3a3a3", icon: "computer", pad: "c64", status: "great", box: 0.72,
+    builtinBios: "Commodore ROMs included with VICE",
+  },
+  {
     id: "amiga", name: "Commodore Amiga", short: "Amiga", maker: "Commodore", year: 1985, kind: "computer",
     folder: "Amiga", aliases: ["amiga"],
     exts: ["adf", "adz", "dms", "ipf", "hdf", "hdz", "lha", "uae"], core: "puae", cores: ["puae"],
@@ -322,6 +366,14 @@ export const SYSTEMS = [
     note: "Put each game in its own .zip. Phosphor finds the right program to start.",
   },
   {
+    id: "doom", name: "Doom engine games", short: "Doom", maker: "id Software", year: 1993, kind: "computer",
+    folder: "Doom", aliases: ["doom", "prboom", "wad"],
+    exts: ["wad"], core: "prboom", cores: ["prboom"],
+    dats: [], meta: null, thumbs: ["DOOM"],
+    color: "#dc2626", icon: "computer", pad: "dos", status: "great", box: 0.8,
+    note: "Drop .wad files: Doom, Doom II, Final Doom, mods, or the free Freedoom games.",
+  },
+  {
     id: "zxspectrum", name: "ZX Spectrum", short: "ZX Spectrum", maker: "Sinclair", year: 1982, kind: "computer",
     folder: "ZX Spectrum", aliases: ["zxspectrum", "zx", "spectrum"],
     exts: ["tzx", "tap", "z80", "sna", "szx", "rzx", "scl", "trd"], core: "fuse", cores: ["fuse"],
@@ -329,6 +381,14 @@ export const SYSTEMS = [
     meta: "Sinclair - ZX Spectrum +3", thumbs: ["Sinclair - ZX Spectrum +3", "Sinclair - ZX Spectrum"],
     color: "#f87171", icon: "computer", pad: "zx", status: "great", box: 0.72,
     builtinBios: "Spectrum ROMs included with Fuse",
+  },
+  {
+    id: "zx81", name: "Sinclair ZX81", short: "ZX81", maker: "Sinclair", year: 1981, kind: "computer",
+    folder: "ZX81", aliases: ["zx81", "sinclairzx81", "ts1000"],
+    exts: ["p", "t81", "tzx"], core: "81", cores: ["81"],
+    dats: [], meta: null, thumbs: ["Sinclair - ZX 81"],
+    color: "#fb923c", icon: "computer", pad: "zx", status: "great", box: 0.72,
+    builtinBios: "ZX81 ROM included with EightyOne",
   },
   {
     id: "cpc", name: "Amstrad CPC", short: "Amstrad CPC", maker: "Amstrad", year: 1984, kind: "computer",
@@ -376,7 +436,7 @@ export const COMPANION_EXTS = new Set(["bin", "img", "sub", "ecm", "wav", "ogg",
 export function publicSystem(s) {
   return {
     id: s.id, name: s.name, short: s.short, maker: s.maker, year: s.year, kind: s.kind,
-    folder: s.folder, exts: [...s.exts, ...(s.discExts || [])], color: s.color, icon: s.icon,
+    folder: s.folder, exts: [...s.exts, ...(s.discExts || [])], color: s.color, icon: s.icon, photo: photoUrl(s.id),
     status: s.status, note: s.note || null, disc: !!s.disc, arcade: !!s.arcade, box: s.box,
     pad: s.pad, needsBios: !!s.bios?.required, threads: !!s.threads,
     biosFiles: s.bios?.files?.map((f) => ({ name: f.name, label: f.label })) || [],

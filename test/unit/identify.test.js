@@ -106,3 +106,14 @@ test("PSP and PlayStation eboots, and PlayStation .exe programs, are told apart"
   assert.equal((await identify(put("g/demo.exe", psxExe), { gamedb })).system, "psx");
   assert.equal((await identify(put("g/game.exe", Buffer.from("MZ\x90\0" + "x".repeat(100))), { gamedb })).system, "dos");
 });
+
+test("home computers sharing disk formats: folder decides, else C64; Doom WADs and ZX81 tapes", async () => {
+  const d64 = Buffer.alloc(174848, 0);
+  assert.equal((await identify(put("loose/Some Disk.d64", d64), { gamedb })).system, "c64", "no folder: the most common machine");
+  assert.equal((await identify(put("vic/Some Disk.d64", d64), { gamedb, folderSystem: "vic20" })).system, "vic20");
+  assert.equal((await identify(put("loose/disk.zip", makeZip({ "game.d64": d64 })), { gamedb })).system, "c64", "zipped disk");
+  assert.equal((await identify(put("loose/Freedoom.wad", Buffer.from("IWAD\0\0\0\0\0\0\0\0")), { gamedb })).system, "doom");
+  assert.equal((await identify(put("loose/3D Monster Maze.p", Buffer.alloc(4000, 1)), { gamedb })).system, "zx81");
+  assert.equal(systemForFolder("Commodore 128"), "c128");
+  assert.equal(systemForFolder("plus4"), "plus4");
+});

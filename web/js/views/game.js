@@ -1,7 +1,6 @@
 import { api } from "../api.js";
 import { store, go } from "../store.js";
-import { h, ic, svg, fmtTime, timeAgo, fmtBytes, toast, toastError, sheet, confirmBox, promptBox, imageColor, setAmbient, hexToRgb } from "../ui.js";
-import { consoleIcon } from "../icons.js";
+import { h, ic, consoleArt, fmtTime, timeAgo, fmtBytes, toast, toastError, sheet, confirmBox, promptBox, imageColor, setAmbient, hexToRgb } from "../ui.js";
 import { sound } from "../sound.js";
 
 export default async function gameView({ params }) {
@@ -20,9 +19,7 @@ export default async function gameView({ params }) {
     }, { once: true });
     boxEl.append(img);
   } else {
-    const el = h("div.cover-gen", { "--sys": sys.color }, h("div.t", g.title), h("div.s", sys.short));
-    const i = svg(consoleIcon(sys.icon)); i.classList.add("ico"); el.prepend(i);
-    boxEl.append(el);
+    boxEl.append(h("div.cover-gen", { "--sys": sys.color }, consoleArt(sys), h("div.t", g.title), h("div.s", sys.short)));
   }
 
   const favBtn = h("button.btn.big.icon", { "data-nav": "", "aria-label": "Favorite", class: g.favorite ? "on" : "", onclick: async () => {

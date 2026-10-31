@@ -20,7 +20,8 @@ file, and one button keeps every emulator up to date.
 | Controllers | Configure per device | Basic | Plug in and go, the whole UI works with a controller, and **your phone is a controller** (scan a QR code, up to 4 players) |
 | Multi-disc games | Write .m3u files | Write .m3u files | Grouped automatically, disc swapping just works |
 | Players | One | Accounts | Netflix-style players, each with saves, favorites and play stats |
-| First run | Empty | Empty | "Get free games" installs 7 great homebrew games in one click |
+| First run | Empty | Empty | "Get free games" installs 9 great free games in one click, including the full Freedoom shooters |
+| Looks | Text lists or theme packs | Plain | Real studio photos of every console's controller, glowing in its own colour |
 
 Full feature-by-feature comparison with RetroArch, EmulatorJS, RomM, LaunchBox, ES-DE/EmuDeck and
 Batocera, including what's still missing: [docs/COMPARISON.md](docs/COMPARISON.md).
@@ -43,7 +44,8 @@ built into their emulators, and the rest never needed one:
 NES, SNES, N64, Game Boy, Game Boy Color, Game Boy Advance, Nintendo DS, Virtual Boy, Master System,
 Genesis/Mega Drive, Game Gear, SG-1000, 32X, Saturn (beta), PlayStation, PSP (beta),
 Atari 2600/5200/7800, Jaguar (beta), TurboGrafx-16/PC Engine, Neo Geo Pocket, WonderSwan, Arcade
-(FinalBurn Neo), Commodore 64, Amiga (beta), DOS, ZX Spectrum, Amstrad CPC.
+(FinalBurn Neo), Commodore 64, Commodore 128, VIC-20, Plus/4, PET, Amiga (beta), DOS, Doom (and Doom
+mods), ZX Spectrum, ZX81, Amstrad CPC.
 
 Consoles that cannot start without their maker's copyrighted BIOS (Sega CD, TurboGrafx-CD, 3DO,
 ColecoVision, Atari Lynx) are left out. If you own one of those BIOS files, drop it in and that
@@ -103,4 +105,6 @@ npm run db          # refresh the game database from libretro-database
 ```
 
 Built on [EmulatorJS](https://emulatorjs.org) and libretro cores (GPL), libretro-database and
-libretro-thumbnails. See Settings › About in the app for full credits.
+libretro-thumbnails. Controller photos come from Wikimedia Commons, most by Evan-Amos (public domain);
+see [web/img/controllers/CREDITS.md](web/img/controllers/CREDITS.md). Settings › About in the app
+has the full credits.

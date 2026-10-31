@@ -27,6 +27,8 @@ body.lcd #lcd { display: block; }
 #loader .inner { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 24px; animation: rise .6s var(--ease) both; }
 #loader .box { width: min(220px, 40vw); aspect-ratio: var(--ar, .75); border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px -20px #000, 0 0 0 1px rgba(255,255,255,.12), 0 0 90px -20px var(--accent); background: rgba(255,255,255,.06); margin-bottom: 26px; animation: float 4s ease-in-out infinite; }
 #loader .box img { width: 100%; height: 100%; object-fit: cover; }
+#loader .box.photo { aspect-ratio: 4 / 3; width: min(280px, 50vw); border-radius: 0; overflow: visible; box-shadow: none; background: none; }
+#loader .box.photo img { object-fit: contain; filter: drop-shadow(0 24px 30px rgba(0, 0, 0, .65)); }
 #loader h1 { margin: 0; font: 700 clamp(24px, 4vw, 40px)/1.1 var(--display); letter-spacing: -.02em; max-width: 20ch; }
 #loader .sys { margin-top: 8px; color: rgba(255,255,255,.6); font-weight: 600; letter-spacing: .12em; text-transform: uppercase; font-size: 12px; }
 #loader .progress { width: min(320px, 70vw); height: 4px; border-radius: 4px; background: rgba(255,255,255,.12); margin: 28px 0 12px; overflow: hidden; }

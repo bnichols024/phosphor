@@ -1,7 +1,6 @@
 import { api } from "../api.js";
 import { store, go } from "../store.js";
-import { h, ic, svg, gameCard, plural, emptyState, hexToRgb, toast, toastError } from "../ui.js";
-import { consoleIcon } from "../icons.js";
+import { h, ic, consoleArt, gameCard, plural, emptyState, hexToRgb, toast, toastError } from "../ui.js";
 import { folderSheet } from "./library.js";
 
 const SORTS = [["az", "A–Z"], ["recent", "Recently played"], ["played", "Most played"], ["added", "Newest"], ["year", "Release year"]];
@@ -27,11 +26,11 @@ export default async function systemView({ params, query }) {
   if (!sys) throw new Error("Unknown console.");
   const games = await api.get(`/api/games?system=${sys.id}`);
   const st = { q: query.q || "", sort: query.sort || "az", filter: "all", genre: "" };
-  const icon = svg(consoleIcon(sys.icon)); icon.classList.add("ico");
+  const icon = consoleArt(sys);
   const genres = [...new Set(games.map((g) => g.genre).filter(Boolean))].sort();
 
   const grid = h("div.grid");
-  const count = h("span");
+  const count = h("span", "No games yet");
   const sentinel = h("div", { style: { height: "1px" } });
   let list = [];
   let shown = 0;
@@ -96,7 +95,7 @@ export default async function systemView({ params, query }) {
 
   if (!games.length) {
     el.append(h("div.page", emptyState({
-      iconSvg: consoleIcon(sys.icon),
+      art: consoleArt(sys, "big"),
       title: `No ${sys.short} games yet`,
       text: `Drop ${sys.exts.slice(0, 3).map((e) => `.${e}`).join(", ")} files onto this window, or copy them into ROMs/${sys.folder} on the server.`,
       actions: [h("button.btn.primary", { "data-nav": "", onclick: () => window.phosphor.pickFiles() }, ic("upload"), "Add games"), h("button.btn", { "data-nav": "", onclick: folderSheet }, ic("folder"), "Show folders")],
