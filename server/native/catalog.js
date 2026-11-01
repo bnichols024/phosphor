@@ -125,7 +125,7 @@ export const NATIVE = {
       darwin: { kind: "github", repo: "shadps4-emu/shadPS4", asset: /^shadps4-macos-sdl-[\d.]+\.zip$/i },
       linux: { kind: "github", repo: "shadps4-emu/shadPS4", asset: /^shadps4-linux-sdl-[\d.]+\.zip$/i },
     },
-    exe: { win32: /^shadps4\.exe$/i, darwin: /\.app$/i, linux: /(\.AppImage|^shadps4)$/i },
+    exe: { win32: /^shadps4\.exe$/i, darwin: /^shadps4$|\.app$/i, linux: /(\.AppImage|^shadps4)$/i },
     launch({ game, dataDir }) { return { args: ["-f", "true", "-g", game], env: xdg(dataDir) }; },
   },
 

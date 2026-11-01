@@ -181,7 +181,17 @@ export async function extract(archive, dest, name = path.basename(archive)) {
   }
   if (lower.endsWith(".zip") && process.platform === "darwin") return run("ditto", ["-x", "-k", archive, dest]); // keeps app bundles intact
   if (/\.tar\.(xz|gz)$/.test(lower) || lower.endsWith(".tgz")) return run("tar", ["-xf", archive, "-C", dest]);
-  return run(sevenZip(), ["x", "-y", `-o${dest}`, archive]);
+  await run(sevenZip(), ["x", "-y", `-o${dest}`, archive]);
+  // Some Windows zips store "folder\\file" names; unpacked elsewhere (building the Windows set on
+  // Linux) those become one odd file name, so turn them back into folders.
+  if (path.sep === "/") {
+    for (const e of await fsp.readdir(dest)) {
+      if (!e.includes("\\")) continue;
+      const to = path.join(dest, ...e.split("\\"));
+      await fsp.mkdir(path.dirname(to), { recursive: true });
+      await fsp.rename(path.join(dest, e), to);
+    }
+  }
 }
 
 // Path (relative to dir) of the program to run: a file, or a macOS .app folder.
