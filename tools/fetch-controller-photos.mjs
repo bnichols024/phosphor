@@ -15,7 +15,7 @@ import { BY_ID } from "../server/systems.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "web/img/controllers");
-const UA = "Phosphor/1.7 (retro gaming app; https://github.com/bnichols024/phosphor)";
+const UA = "Phosphor/1.8 (retro gaming app; https://github.com/bnichols024/phosphor)";
 
 // system id -> Commons file. Most are Evan-Amos's public-domain studio photos.
 export const PHOTOS = {
@@ -64,6 +64,7 @@ export const PHOTOS = {
   wii: "Wii-Console.png",
   wiiu: "Wii U Gamepad schwarz transparent.png",
   switch: "Nintendo-Switch-JoyCon-Grip-FL.jpg",
+  switch2: "Nintendo Switch 2 Joy-Con 2 Blue and Orange.jpg",
   "3ds": "Nintendo-3DS-AquaOpen.png",
   dreamcast: "Sega-Dreamcast-Controller-wVMU-FL.png",
   ps2: "PlayStation2-DualShock2.png",

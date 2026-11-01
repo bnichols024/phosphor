@@ -51,6 +51,7 @@ Modified versions of CC BY-SA photos are shared under the same license.
 | Sega Master System | [Sega-Master-System-Controllers.jpg](https://commons.wikimedia.org/wiki/File:Sega-Master-System-Controllers.jpg) | Evan-Amos | Public domain |
 | Super Nintendo | [Nintendo-Super-NES-Controller.jpg](https://commons.wikimedia.org/wiki/File:Nintendo-Super-NES-Controller.jpg) | Evan-Amos | Public domain |
 | Nintendo Switch | [Nintendo-Switch-JoyCon-Grip-FL.jpg](https://commons.wikimedia.org/wiki/File:Nintendo-Switch-JoyCon-Grip-FL.jpg) | Evan-Amos | Public domain |
+| Nintendo Switch 2 | [Nintendo Switch 2 Joy-Con 2 Blue and Orange.jpg](https://commons.wikimedia.org/wiki/File:Nintendo_Switch_2_Joy-Con_2_Blue_and_Orange.jpg) | Crisco 1492 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
 | Virtual Boy | [Virtual-Boy-Controller.jpg](https://commons.wikimedia.org/wiki/File:Virtual-Boy-Controller.jpg) | Evan-Amos | Public domain |
 | Vectrex | [GCE-Vectrex-Controller-FL.jpg](https://commons.wikimedia.org/wiki/File:GCE-Vectrex-Controller-FL.jpg) | Evan-Amos | Public domain |
 | Commodore VIC-20 | [Commodore-VIC-20-FL.jpg](https://commons.wikimedia.org/wiki/File:Commodore-VIC-20-FL.jpg) | Evan-Amos | Public domain |

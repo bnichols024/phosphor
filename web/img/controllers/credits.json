@@ -367,6 +367,14 @@
     "license": "Public domain",
     "licenseUrl": ""
   },
+  "switch2": {
+    "name": "Nintendo Switch 2",
+    "file": "Nintendo Switch 2 Joy-Con 2 Blue and Orange.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Nintendo_Switch_2_Joy-Con_2_Blue_and_Orange.jpg",
+    "artist": "Crisco 1492",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
   "vb": {
     "name": "Virtual Boy",
     "file": "Virtual-Boy-Controller.jpg",

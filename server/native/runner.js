@@ -42,7 +42,7 @@ export class NativeRunner {
     fs.mkdirSync(saveDir, { recursive: true });
     fs.mkdirSync(dataDir, { recursive: true });
     const program = programPath(exe);
-    const ctx = { game, saveDir, dataDir, platform: this.native.platform, sysFiles };
+    const ctx = { game, saveDir, dataDir, platform: this.native.platform, sysFiles, program };
     this.preparing = { emulator: emulatorId };
     let args, env;
     try {

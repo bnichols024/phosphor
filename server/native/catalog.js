@@ -200,6 +200,38 @@ export const NATIVE = {
     },
   },
 
+  eglantine: {
+    id: "eglantine", name: "Eglantine", systems: ["switch2"], saveFolder: "Switch 2", license: "GPL-3.0+", home: "https://github.com/Djihads80/Eglantine",
+    // Very new and experimental: every build is a numbered pre-release, so take the newest one that
+    // has a download for this OS. (Beware look-alike repositories; this is the project's own.)
+    sources: {
+      win32: { kind: "github", repo: "Djihads80/Eglantine", list: true, asset: /^eglantine-windows-x86_64-[0-9a-f]{40}\.zip$/i },
+      linux: { kind: "github", repo: "Djihads80/Eglantine", list: true, asset: /^eglantine-[0-9a-f]{40}-linux-x86_64\.AppImage$/i },
+    },
+    exe: { win32: /^eglantine\.exe$/i, linux: /\.AppImage$/i },
+    // Eglantine shares Eden's "eden" data folder. To keep them apart on Windows it runs in portable
+    // mode (a "user" folder next to the program), linked to the player's own data folder. On Linux
+    // the XDG folders already point at the player's folder.
+    launch({ game, dataDir, platform, sysFiles, program }) {
+      const env = platform === "linux" ? xdg(dataDir) : {};
+      let base = appDataDir(platform, "eden", { xdg: env.XDG_DATA_HOME });
+      if (platform === "win32" && program) {
+        const own = path.join(dataDir, "user");
+        fs.mkdirSync(own, { recursive: true });
+        const link = path.join(path.dirname(program), "user");
+        try {
+          try { if (fs.realpathSync(link) !== fs.realpathSync(own)) fs.unlinkSync(link); } catch { /* no link yet */ }
+          if (!fs.existsSync(link)) fs.symlinkSync(own, link, "junction");
+          base = own;
+        } catch { /* install folder not writable: Eglantine uses the shared folder */ }
+      }
+      const keys = path.join(base, "keys");
+      copyIfChanged(sysFiles?.prodKeys, path.join(keys, "prod.keys"));
+      copyIfChanged(sysFiles?.titleKeys, path.join(keys, "title.keys"));
+      return { args: ["-f", "-g", game], env };
+    },
+  },
+
   azahar: {
     id: "azahar", name: "Azahar", systems: ["3ds"], saveFolder: "3DS", license: "GPL-2.0+", home: "https://azahar-emu.org",
     sources: {
@@ -283,9 +315,19 @@ export async function latestRelease(emu, platform = process.platform) {
   if (src.kind === "github") {
     // A token (only set in CI builds) avoids GitHub's 60-requests-an-hour limit for anonymous calls.
     const auth = process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {};
-    const res = await fetch(`${GH()}/repos/${src.repo}/releases/latest`, { headers: { accept: "application/vnd.github+json", "user-agent": "Phosphor", ...auth } });
-    if (!res.ok) throw new Error(`${emu.name}: GitHub answered ${res.status}`);
-    const j = await res.json();
+    const headers = { accept: "application/vnd.github+json", "user-agent": "Phosphor", ...auth };
+    let j;
+    if (src.list) {
+      // Projects that only publish pre-releases: the newest release with a build for this OS.
+      const res = await fetch(`${GH()}/repos/${src.repo}/releases?per_page=15`, { headers });
+      if (!res.ok) throw new Error(`${emu.name}: GitHub answered ${res.status}`);
+      j = (await res.json()).find((r) => !r.draft && (r.assets || []).some((x) => src.asset.test(x.name)));
+      if (!j) throw new Error(`${emu.name}: no recent build for this computer`);
+    } else {
+      const res = await fetch(`${GH()}/repos/${src.repo}/releases/latest`, { headers });
+      if (!res.ok) throw new Error(`${emu.name}: GitHub answered ${res.status}`);
+      j = await res.json();
+    }
     const a = (j.assets || []).find((x) => src.asset.test(x.name));
     if (!a) throw new Error(`${emu.name}: no download for this computer in release ${j.tag_name}`);
     const version = src.version ? src.version(j.tag_name, j, a) : j.tag_name.replace(/^v\.?/i, "");

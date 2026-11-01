@@ -61,6 +61,7 @@ emulators it ships with:
 | PS Vita | Vita3K | Sony's free Vita system software (PSVUPDAT.PUP); Phosphor installs it |
 | PS4 (beta) | shadPS4 | nothing; many games don't run yet |
 | Switch | Eden | the keys from your Switch (prod.keys) |
+| Switch 2 (experimental) | Eglantine | nothing for unpacked game folders; Windows and Linux only |
 | Xbox | xemu | your Xbox's MCPX and flash BIOS (a blank hard drive is included) |
 | Xbox 360 | Xenia Canary | nothing (Windows only) |
 

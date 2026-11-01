@@ -51,6 +51,8 @@ export async function detectSystemFiles(files, { exclude = new Set() } = {}) {
   // Switch: keys dumped from the player's own console.
   const prod = byName(/^prod\.keys$/), title = byName(/^title\.keys$/);
   out.switch = { ready: !!prod, files: { prodKeys: prod?.file || null, titleKeys: title?.file || null } };
+  // Switch 2 (Eglantine): unpacked games run without keys; keys are passed on if the player has them.
+  out.switch2 = { ready: true, files: { prodKeys: prod?.file || null, titleKeys: title?.file || null } };
   // PS3 / Vita: Sony's free system software files.
   const ps3 = byName(/^ps3updat\.pup$/);
   out.ps3 = { ready: !!ps3, files: { firmware: ps3?.file || null } };

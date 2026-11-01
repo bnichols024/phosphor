@@ -138,6 +138,14 @@ export const SYSTEMS = [
     needs: { files: "switch", chip: "Needs keys", label: "your Switch keys", help: "Switch games need the keys from your own Switch (prod.keys, and title.keys if you have it). Drop them into the BIOS folder or onto this window." },
     note: "Some games also need the Switch firmware installed in Eden.",
   },
+  {
+    id: "switch2", name: "Nintendo Switch 2", short: "Switch 2", maker: "Nintendo", year: 2025, kind: "console",
+    folder: "Switch 2", aliases: ["switch2", "ns2", "nx2", "nintendoswitch2"],
+    exts: ["nsp", "xci"], discExts: [], core: null, cores: [], native: "eglantine", folderGames: true,
+    dats: [], meta: null, thumbs: [],
+    color: "#ff4554", icon: "handheld-wide", pad: "snes", status: "experimental", box: 0.62,
+    note: "Switch 2 emulation is brand new: Eglantine runs a few games (Mario Kart World among them) and many not at all yet. Use games dumped from your own console as unpacked folders (with exefs/main inside). Without keys from your console, Eglantine asks for them when it starts: choose No and the game still loads. Windows and Linux only for now.",
+  },
   // ---- Sega ----
   {
     id: "sms", name: "Sega Master System", short: "Master System", maker: "Sega", year: 1986, kind: "console",

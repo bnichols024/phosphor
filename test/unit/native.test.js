@@ -348,3 +348,58 @@ test("desktop consoles that need the player's files show locked until those file
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("Switch 2 (Eglantine): newest pre-release build, unpacked game folders, its own data folder", async () => {
+  // Eglantine only publishes numbered pre-releases; the newest one with this OS's build wins.
+  const gh = http.createServer((req, res) => {
+    res.setHeader("content-type", "application/json");
+    if (req.url.startsWith("/repos/Djihads80/Eglantine/releases?")) return res.end(JSON.stringify([
+      { tag_name: "build-99", prerelease: true, assets: [{ name: `eglantine-windows-x86_64-${"a".repeat(40)}.zip`, browser_download_url: "x", size: 1 }] },
+      { tag_name: "build-98", prerelease: true, assets: [{ name: `eglantine-${"b".repeat(40)}-linux-x86_64.AppImage`, browser_download_url: "y", size: 1 },
+        { name: `eglantine-${"b".repeat(40)}-linux-x86_64-pgo.AppImage`, browser_download_url: "z", size: 1 }] },
+    ]));
+    res.statusCode = 404; res.end("{}");
+  });
+  await new Promise((r) => gh.listen(0, "127.0.0.1", r));
+  const old = process.env.PHOSPHOR_GITHUB_API;
+  process.env.PHOSPHOR_GITHUB_API = `http://127.0.0.1:${gh.address().port}`;
+  try {
+    const { NATIVE, latestRelease } = catalog;
+    assert.equal((await latestRelease(NATIVE.eglantine, "win32")).version, "build-99");
+    const lin = await latestRelease(NATIVE.eglantine, "linux");
+    assert.deepEqual([lin.version, lin.url], ["build-98", "y"], "skips a release without a Linux build, and the PGO variant");
+  } finally { process.env.PHOSPHOR_GITHUB_API = old; gh.close(); }
+
+  // Unpacked games: exefs/main + main.npdm; the program ID tells Switch 2 from Switch.
+  const gamedb = new GameDB(path.join(import.meta.dirname, "..", "..", "db"));
+  const dir = tmpdir("phosphor-ns2-");
+  const npdm = (id) => { const b = Buffer.alloc(0x200); b.write("META", 0); b.writeUInt32LE(0x80, 0x70); b.write("ACI0", 0x80); b.writeBigUInt64LE(id, 0x90); return b; };
+  const put = (rel, data = "x") => { const p = path.join(dir, rel); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, data); return p; };
+  put("Mario Kart World [0400C3F00006E000]/exefs/main"); put("Mario Kart World [0400C3F00006E000]/exefs/main.npdm", npdm(0x0400c3f00006e000n));
+  put("Mario Kart World [0400C3F00006E000]/exefs/sdk"); put("Mario Kart World [0400C3F00006E000]/romfs/data.bin");
+  put("Old Game/exefs/main"); put("Old Game/exefs/main.npdm", npdm(0x0100000000010000n));
+  const files = [];
+  const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); e.isDirectory() ? walk(p) : files.push(p); } };
+  walk(dir);
+  const groups = await groupGames(files);
+  assert.equal(groups.length, 2, "one game per folder, no stray files");
+  const ids = [];
+  for (const g of groups) ids.push(await identify(g.main, { gamedb, folderGame: g.folder }));
+  const mk = ids.find((i) => i.system === "switch2");
+  assert.ok(mk, "Switch 2 title recognised");
+  assert.equal(mk.title, "Mario Kart World");
+  assert.equal(ids.find((i) => i.title === "Old Game").system, "switch");
+
+  // Windows: portable "user" folder next to the program, linked to the player's own folder, so
+  // Eglantine never shares Eden's settings; keys go there.
+  const prog = path.join(dir, "bin", "eglantine.exe");
+  put("bin/eglantine.exe");
+  const keys = put("prod.keys", "header_key = 00");
+  const data = path.join(dir, "player1");
+  const r = NATIVE_launch(catalog.NATIVE.eglantine, { game: mk.files[0], dataDir: data, saveDir: data, platform: "win32", program: prog, sysFiles: { prodKeys: keys } });
+  assert.deepEqual(r.args, ["-f", "-g", mk.files[0]]);
+  assert.equal(fs.realpathSync(path.join(dir, "bin", "user")), fs.realpathSync(path.join(data, "user")));
+  assert.ok(fs.existsSync(path.join(data, "user", "keys", "prod.keys")));
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+const NATIVE_launch = (emu, ctx) => emu.launch(ctx);

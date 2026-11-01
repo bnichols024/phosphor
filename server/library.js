@@ -375,7 +375,7 @@ export async function groupGames(files) {
   // Folder games (PS3, PS4, Vita, Wii U): the whole folder is one game, started from its main file.
   const folders = new Map();
   for (const f of files) {
-    if (!/(^|[\\/])eboot\.bin$|\.rpx$/i.test(f)) continue;
+    if (!/(^|[\\/])eboot\.bin$|\.rpx$|[\\/]exefs[\\/]main$/i.test(f)) continue;
     const g = await folderGame(f).catch(() => null);
     if (g && !folders.has(g.root)) folders.set(g.root, g);
   }
@@ -420,6 +420,17 @@ export async function groupGames(files) {
   return groups;
 }
 
+// Program ID (16 hex digits) from a Switch main.npdm: META header, ACI0 block at the offset in 0x70.
+async function npdmProgramId(file) {
+  try {
+    const b = await fsp.readFile(file);
+    if (b.toString("latin1", 0, 4) !== "META") return null;
+    const off = b.readUInt32LE(0x70);
+    if (b.toString("latin1", off, off + 4) !== "ACI0") return null;
+    return b.readBigUInt64LE(off + 0x10).toString(16).padStart(16, "0").toUpperCase();
+  } catch { return null; }
+}
+
 // What kind of folder game a main file belongs to, with its title and ID from the game's own info.
 export async function folderGame(file) {
   const base = path.basename(file).toLowerCase();
@@ -440,6 +451,14 @@ export async function folderGame(file) {
       return { system: /^PCS[A-H]/.test(id) ? "vita" : "ps4", root: dir, main: file, title: sfo.TITLE || null, serial: id || null };
     }
     return null;
+  }
+  if (base === "main" && path.basename(dir).toLowerCase() === "exefs") {
+    // Unpacked Switch / Switch 2 game: <game>/exefs/main. The program ID in main.npdm tells them
+    // apart (Switch 2 titles start 04..., Switch titles 01...).
+    const root = path.dirname(dir);
+    const id = await npdmProgramId(path.join(dir, "main.npdm"));
+    const system = id && id.startsWith("04") ? "switch2" : "switch";
+    return { system, root, main: file, title: path.basename(root).replace(/\s*\[[0-9A-Fa-f]{16}\]/g, "").trim() || null, serial: id };
   }
   if (base.endsWith(".rpx") && path.basename(dir).toLowerCase() === "code") {
     // Wii U: <game>/code/<name>.rpx with meta/meta.xml; cos.xml names the program to start.
