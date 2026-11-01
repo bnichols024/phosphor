@@ -8,9 +8,12 @@ import { tmpdir, makeTar } from "./helpers.js";
 
 // A fake npm registry that serves the runtime and every core at a version we control.
 let server, registry, Emulators, ALL_CORES, SYSTEMS, version = "9.0.0";
+const versions = {}; // per-package overrides: one emulator gets a release of its own
+const vOf = (name) => versions[name] || version;
 const SOURCES = ["emulator.js", "nipplejs.js", "shaders.js", "storage.js", "gamepad.js", "GameManager.js", "socket.io.min.js", "compression.js"];
 
 function tarballFor(name) {
+  const version = vOf(name);
   if (name === "@emulatorjs/emulatorjs") {
     const files = { "package/data/loader.js": `// loader ${version}`, "package/data/emulator.css": "body{}" };
     for (const f of SOURCES) files[`package/data/src/${f}`] = `// ${f} ${version}`;
@@ -29,7 +32,7 @@ before(async () => {
       const name = url.slice(1, -"/latest".length);
       const tgz = tarballFor(name);
       const integrity = "sha512-" + crypto.createHash("sha512").update(tgz).digest("base64");
-      res.end(JSON.stringify({ version, dist: { tarball: `${registry}/tgz/${encodeURIComponent(name)}`, integrity } }));
+      res.end(JSON.stringify({ version: vOf(name), dist: { tarball: `${registry}/tgz/${encodeURIComponent(name)}`, integrity } }));
     } else if (url.startsWith("/tgz/")) {
       res.end(tarballFor(url.slice(5)));
     } else { res.statusCode = 404; res.end(); }
@@ -91,4 +94,44 @@ test("a broken download leaves the current emulators untouched", async () => {
   assert.equal(emu.active().id, before);
   assert.equal(emu.state.phase, "failed");
   assert.ok(!fs.readdirSync(userDir).some((f) => f.startsWith(".staging")));
+});
+
+test("each emulator can be updated and rolled back on its own", async () => {
+  const userDir = tmpdir("phosphor-emu-");
+  version = "9.0.0";
+  const emu = new Emulators({ bundledDir: null, userDir, log: {} });
+  await emu.update();
+  const first = emu.active();
+  versions["@emulatorjs/core-snes9x"] = "9.0.5";
+  try {
+    const check = await emu.check();
+    assert.deepEqual(check.changes.map((c) => [c.kind, c.id, c.from, c.to]), [["core", "snes9x", "9.0.0", "9.0.5"]]);
+    const r = await emu.update({ only: { kind: "core", id: "snes9x" } });
+    assert.equal(r.updated, true);
+    const now = emu.active();
+    assert.notEqual(now.id, first.id, "a new install, so switching stays atomic");
+    assert.equal(now.cores.snes9x, "9.0.5");
+    assert.equal(now.cores.fceumm, "9.0.0", "other emulators unchanged");
+    const cores = (d) => path.join(d, "data", "cores");
+    assert.equal(fs.readFileSync(path.join(cores(now.dir), "snes9x-wasm.data"), "utf8"), "snes9x 9.0.5");
+    assert.equal(fs.readFileSync(path.join(cores(first.dir), "snes9x-wasm.data"), "utf8"), "snes9x 9.0.0", "old install not written through a hard link");
+    assert.equal(fs.statSync(path.join(cores(now.dir), "fceumm-wasm.data")).ino, fs.statSync(path.join(cores(first.dir), "fceumm-wasm.data")).ino, "unchanged files are shared");
+    assert.equal(emu.state.check.upToDate, true, "update list cleared");
+    assert.equal(emu.summary().itemPrevious.cores.snes9x, "9.0.0");
+    assert.equal((await emu.update({ only: { kind: "core", id: "snes9x" } })).updated, false, "already current");
+
+    await emu.rollbackOne({ kind: "core", id: "snes9x" });
+    assert.equal(emu.active().cores.snes9x, "9.0.0");
+    assert.equal(fs.readFileSync(path.join(cores(emu.active().dir), "snes9x-wasm.data"), "utf8"), "snes9x 9.0.0");
+
+    versions["@emulatorjs/emulatorjs"] = "9.1.0";
+    await emu.update({ only: { kind: "runtime", id: "runtime" } });
+    assert.equal(emu.active().runtime, "9.1.0");
+    assert.equal(emu.active().cores.snes9x, "9.0.0");
+    assert.match(fs.readFileSync(path.join(emu.active().dir, "data", "emulator.min.js"), "utf8"), /9\.1\.0/);
+    await assert.rejects(() => emu.update({ only: { kind: "core", id: "nope" } }));
+  } finally {
+    delete versions["@emulatorjs/core-snes9x"];
+    delete versions["@emulatorjs/emulatorjs"];
+  }
 });

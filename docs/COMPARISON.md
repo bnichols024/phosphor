@@ -10,7 +10,7 @@ Legend: ✅ has it · ⭐ has it and goes further · ❌ doesn't · — not appl
 | Feature | RetroArch | EmulatorJS | RomM | LaunchBox | ES-DE/EmuDeck | Batocera | **Phosphor** |
 |---|---|---|---|---|---|---|---|
 | Emulators included | ✅ download per core | ✅ | via EmulatorJS | ❌ bring your own | ✅ EmuDeck installs | ✅ | ⭐ 42 in-browser emulators plus Dolphin and Flycast in the desktop app (38 consoles and computers), work offline (tested: NES, SNES, N64, GB, GBC, GBA, Genesis, PS1, PSP) |
-| Update emulators | per core | manual | image update | manual | EmuDeck updater | OS update | ⭐ one Update button for all, atomic, one-click undo (tested with a fake registry, incl. failed download) |
+| Update emulators | per core | manual | image update | manual | EmuDeck updater | OS update | ⭐ one Update button for all, or update any single emulator; atomic, one-click undo for all or per emulator (tested with a fake registry, incl. failed download) |
 | Choose another emulator per game | ✅ manual | ❌ | ❌ | ✅ | ✅ | ✅ | ⭐ crash/freeze detected, "Try ParaLLEl N64" offered, choice remembered (tested) |
 | Install per device | yes | no | no | Windows | per device | own OS | ⭐ none: any browser, TV/PC/phone |
 | BIOS handling | find your own | find your own | BIOS upload | find your own | BIOS checker | BIOS checker | ⭐ ships open-source BIOS files (PlayStation OpenBIOS, GBA), uses emulators' built-in BIOS (DS, Saturn, PSP, Amiga…), finds your own BIOS anywhere by checksum; consoles with no legal BIOS stay out of the way |

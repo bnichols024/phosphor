@@ -786,13 +786,20 @@ export function buildApi(ctx) {
   r.post("/api/emulators/check", async (req, res) => {
     try { json(res, 200, await emulators.check()); } catch (e) { throw new HttpError(502, e.message); }
   });
-  r.post("/api/emulators/update", (req, res) => {
+  // Body { kind, id } updates or rolls back just that emulator; no body means all of them.
+  const emulatorItem = async (req) => {
+    const b = await readJson(req).catch(() => ({}));
+    return b?.kind ? { kind: String(b.kind), id: String(b.id || "") } : null;
+  };
+  r.post("/api/emulators/update", async (req, res) => {
     if (emulators.state.running) throw new HttpError(409, "An update is already running.");
-    emulators.update().catch(() => {});
+    const only = await emulatorItem(req);
+    emulators.update({ only }).catch(() => {});
     json(res, 202, { started: true });
   });
   r.post("/api/emulators/rollback", async (req, res) => {
-    try { json(res, 200, await emulators.rollback()); } catch (e) { throw new HttpError(400, e.message); }
+    const only = await emulatorItem(req);
+    try { json(res, 200, only ? await emulators.rollbackOne(only) : await emulators.rollback()); } catch (e) { throw new HttpError(400, e.message); }
   });
 
   // ---- live events (server-sent events) ----

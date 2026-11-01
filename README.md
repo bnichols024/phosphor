@@ -14,7 +14,7 @@ file, and one button keeps every emulator up to date.
 | Adding games | Right folder, right name | Upload or folder | **Drop anything anywhere.** Zips, folders, mixed consoles: it works out the console from the file itself and files it. BIOS files too. |
 | BIOS | You find them | You find them | **Handled for you.** Ships open-source BIOS files for PlayStation (OpenBIOS) and GBA; DS, Saturn, PSP, Amiga and others use BIOS replacements built into their emulators. Official BIOS you own are found anywhere and used automatically. Only 5 systems with no legal replacement wait for yours. |
 | Emulator won't run a game | Change core in menus | Not possible | Crash or freeze is detected and the other emulator is one tap away, then remembered for that game |
-| Updating emulators | Per core, per device | Manual | **One Update button**, atomic, with one-click undo |
+| Updating emulators | Per core, per device | Manual | **One Update button**, atomic, with one-click undo. Or update (or roll back) any single emulator from its own row |
 | Saves | Stuck on one device | Per browser | **Follow you.** In-game saves sync to the server, with the last 8 versions kept |
 | Resume | Manual save states | Manual | **Pick up where you left off** on any device; Home shows the exact frame you quit on |
 | Controllers | Configure per device | Basic | Plug in and go, the whole UI works with a controller, and **your phone is a controller** (scan a QR code, up to 4 players) |

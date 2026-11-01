@@ -475,6 +475,15 @@ body.pad #hints { display: flex; }
 .core-table td { padding: 10px 6px; border-top: 1px solid var(--stroke); }
 .core-table td:last-child { text-align: right; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .core-table .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 10px; background: var(--c); }
+.core-table td { vertical-align: middle; }
+.core-table .emu-name { display: flex; align-items: center; gap: 0; font-weight: 600; }
+.core-table .emu-name .chip { margin-left: 10px; font-size: 11px; padding: 2px 8px; }
+.core-table .emu-plays { color: var(--text-3); font-size: 12.5px; margin: 3px 0 0 20px; }
+.core-table td.ver { text-align: left; white-space: nowrap; color: var(--text-2); }
+.core-table .emu-new { color: var(--accent); font-size: 12px; font-weight: 600; margin-top: 2px; }
+.core-table td.acts { white-space: nowrap; }
+.core-table td.acts .btn { margin-left: 6px; }
+@media (max-width: 760px) { .core-table td.ver { display: none; } .core-table .emu-plays { margin-left: 20px; } }
 .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--good); }
 .status-dot.warn { background: var(--warn); } .status-dot.bad { background: var(--bad); }
 

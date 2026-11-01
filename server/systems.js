@@ -433,6 +433,19 @@ export const BY_ID = Object.fromEntries(SYSTEMS.map((s) => [s.id, s]));
 // Every emulator core any system can use, so the updater knows what to fetch.
 export const ALL_CORES = [...new Set(SYSTEMS.flatMap((s) => s.cores))];
 
+// How each core is shown to people.
+export const CORE_NAMES = {
+  fceumm: "FCEUmm", nestopia: "Nestopia", snes9x: "Snes9x", mupen64plus_next: "Mupen64Plus-Next", parallel_n64: "ParaLLEl N64",
+  gambatte: "Gambatte", mgba: "mGBA", desmume2015: "DeSmuME", melonds: "melonDS", desmume: "DeSmuME (new)", beetle_vb: "Beetle VB",
+  genesis_plus_gx: "Genesis Plus GX", smsplus: "SMS Plus", picodrive: "PicoDrive", yabause: "Yabause", pcsx_rearmed: "PCSX ReARMed",
+  mednafen_psx_hw: "Beetle PSX", ppsspp: "PPSSPP", stella2014: "Stella", a5200: "a5200", prosystem: "ProSystem",
+  virtualjaguar: "Virtual Jaguar", handy: "Handy", mednafen_pce: "Beetle PCE", mednafen_ngp: "Beetle NeoPop", mednafen_wswan: "Beetle Cygne",
+  gearcoleco: "Gearcoleco", opera: "Opera", fbneo: "FinalBurn Neo", mame2003_plus: "MAME 2003-Plus", vice_x64sc: "VICE (C64)",
+  vice_x128: "VICE (C128)", vice_xvic: "VICE (VIC-20)", vice_xplus4: "VICE (Plus/4)", vice_xpet: "VICE (PET)", puae: "PUAE",
+  dosbox_pure: "DOSBox Pure", prboom: "PrBoom", fuse: "Fuse", 81: "EightyOne", cap32: "Caprice32",
+};
+export const coreName = (c) => CORE_NAMES[c] || c;
+
 // Folder name (lower-case, punctuation stripped) -> system id. Includes our folder names and the
 // folder names other frontends (RetroArch, Batocera, ES-DE, RetroPie) use, so an existing ROM
 // collection drops straight in.
@@ -465,7 +478,7 @@ export function publicSystem(s) {
   return {
     id: s.id, name: s.name, short: s.short, maker: s.maker, year: s.year, kind: s.kind,
     folder: s.folder, exts: [...s.exts, ...(s.discExts || [])], color: s.color, icon: s.icon, photo: photoUrl(s.id),
-    core: s.core, status: s.status, note: s.note || null, disc: !!s.disc, arcade: !!s.arcade, box: s.box,
+    core: s.core, cores: s.cores, status: s.status, note: s.note || null, disc: !!s.disc, arcade: !!s.arcade, box: s.box,
     pad: s.pad, needsBios: !!s.bios?.required, threads: !!s.threads,
     // Consoles played in a desktop emulator (desktop app only) instead of in the browser.
     native: s.native || null, nativeName: s.native ? NATIVE[s.native].name : null,

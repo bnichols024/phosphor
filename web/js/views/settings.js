@@ -81,7 +81,7 @@ async function emulators(root) {
       const when = s.lastCheck ? `Checked ${timeAgo(Date.parse(s.lastCheck))}. ` : "";
       desc.textContent = `${when}EmulatorJS ${active.runtime} with ${Object.keys(active.cores || {}).length} emulator cores, installed ${timeAgo(Date.parse(active.installedAt))}.`;
       btn.replaceChildren(ic("refresh"), "Update");
-      if (s.phase !== "done") changes.replaceChildren();
+      changes.replaceChildren();
     }
   };
   paint();
@@ -100,38 +100,77 @@ async function emulators(root) {
     if (s.phase === "done" || s.phase === "failed") {
       summary = await api.get("/api/emulators");
       if (s.phase === "done") { sound.play("success"); toast({ title: s.message || "Emulators updated", icon: "check", kind: "good" }); }
-      table();
     }
     paint(s);
+    table();
   };
   window.addEventListener("phosphor:emulators", onProgress);
 
+  // One row per emulator: what it plays, its version, and its own Update / Previous version.
   const tableHost = h("div");
+  const runItem = async (path, item, btn) => {
+    btn.disabled = true;
+    sound.play("select");
+    try {
+      if (path === "rollback") {
+        summary = await api.post("/api/emulators/rollback", item);
+        paint(); table();
+        toast({ title: summary.state?.message || "Previous version restored", icon: "history", kind: "good" });
+        // The version just left is now an update again.
+        const check = await api.post("/api/emulators/check").catch(() => null);
+        if (check) { summary = { ...summary, state: { ...summary.state, check, lastCheck: check.checkedAt } }; paint(); table(); }
+      }
+      else await api.post("/api/emulators/update", item);
+    } catch (e) { toastError(e); btn.disabled = false; }
+  };
   const table = () => {
-    const cores = summary.active?.cores || {};
-    const native = Object.fromEntries((summary.native || []).map((n) => [n.id, n]));
-    tableHost.replaceChildren(h("table.core-table", h("tbody", store.systemList.map((s) => {
-      const n = s.native && native[s.native];
-      const version = s.native ? (n?.version ? `v${n.version}` : store.state.desktop ? "not installed" : "desktop app") : cores[s.core] ? `v${cores[s.core]}` : "—";
+    const running = summary.state?.running;
+    const changes = summary.state?.check?.changes || [];
+    const prev = summary.itemPrevious || { runtime: null, cores: {} };
+    const rows = [];
+    if (summary.active) rows.push({ kind: "runtime", id: "runtime", name: "EmulatorJS", plays: "Runs every in-browser emulator", version: summary.active.runtime, previous: prev.runtime, color: "#7c5cff" });
+    const systems = store.systemList.filter((s) => !s.native);
+    for (const core of Object.keys(summary.active?.cores || {})) {
+      const uses = systems.filter((s) => (s.cores || [s.core]).includes(core));
+      if (!uses.length) continue; // only consoles you can see (kid mode, BIOS-locked)
+      rows.push({ kind: "core", id: core, name: coreName(core), plays: uses.map((s) => s.short).join(", "), version: summary.active.cores[core], previous: prev.cores[core] || null, color: uses[0].color, order: store.systemList.indexOf(uses[0]) });
+    }
+    rows.sort((a, b) => (a.order ?? -1) - (b.order ?? -1));
+    for (const n of summary.native || []) {
+      const uses = store.systemList.filter((s) => s.native === n.id);
+      rows.push({ kind: "native", id: n.id, name: n.name, plays: uses.map((s) => s.short).join(", "), version: n.version, previous: n.previous, color: uses[0]?.color || "#7c5cff", desktop: true });
+    }
+    if (!store.state.desktop) {
+      const desk = [...new Set(store.systemList.filter((s) => s.native).map((s) => s.nativeName))];
+      if (desk.length) rows.push({ name: desk.join(", "), plays: store.systemList.filter((s) => s.native).map((s) => s.short).join(", "), version: null, note: "In the desktop app", color: "#475569", desktop: true });
+    }
+    tableHost.replaceChildren(h("table.core-table", h("tbody", rows.map((r) => {
+      const change = r.kind && changes.find((c) => c.kind === r.kind && c.id === r.id);
       return h("tr",
-        h("td", h("span.sw", { "--c": s.color }), s.name),
-        h("td", { style: { color: "var(--text-2)" } }, s.native ? s.nativeName : coreName(s.core), s.native ? h("span.chip", { style: { marginLeft: "8px" } }, "Desktop") : null),
-        h("td", version));
+        h("td", h("div.emu-name", h("span.sw", { "--c": r.color }), r.name, r.desktop ? h("span.chip", "Desktop") : null), h("div.emu-plays", r.plays)),
+        h("td.ver", r.note || (r.version ? `v${r.version}` : "not installed"), change ? h("div.emu-new", `v${change.to} available`) : null),
+        h("td.acts",
+          change ? h("button.btn.small.primary", { "data-nav": "", disabled: running, onclick: (e) => runItem("update", { kind: r.kind, id: r.id }, e.currentTarget) }, ic("download"), "Update") : null,
+          // A "previous" version that is really the newest one is offered as Update instead.
+          r.previous && r.previous !== change?.to ? h("button.btn.small.ghost", { "data-nav": "", disabled: running, title: `Go back to v${r.previous}`, onclick: async (e) => {
+            const b = e.currentTarget;
+            if (!(await confirmBox(`Go back to ${r.name} ${r.previous}?`, `Only ${r.name} changes. You can update it again any time.`, { ok: "Go back" }))) return;
+            runItem("rollback", { kind: r.kind, id: r.id }, b);
+          } }, ic("history"), `v${r.previous}`) : null));
     }))));
   };
   table();
 
   root.append(hero,
-    h("div.card", h("h3", "What's installed"), h("p", "Every console's emulator ships with Phosphor and works offline. Update pulls the newest versions of all of them at once: the in-browser emulators from the EmulatorJS project, and in the desktop app the full desktop emulators (Dolphin, Flycast) from their makers."), tableHost));
+    h("div.card", h("h3", "What's installed"), h("p", "Every console's emulator ships with Phosphor and works offline. The big Update button updates all of them at once; each one also has its own Update button when a new version is out, and a button to go back to the version it had before."), tableHost));
 
   if (!summary.state.running) {
-    api.post("/api/emulators/check").then((check) => { summary = { ...summary, state: { ...summary.state, check, lastCheck: check.checkedAt } }; paint(); }).catch(() => {});
+    api.post("/api/emulators/check").then((check) => { summary = { ...summary, state: { ...summary.state, check, lastCheck: check.checkedAt } }; paint(); table(); }).catch(() => {});
   }
   return () => window.removeEventListener("phosphor:emulators", onProgress);
 }
 
-const CORE_NAMES = { fceumm: "FCEUmm", snes9x: "Snes9x", mupen64plus_next: "Mupen64Plus-Next", gambatte: "Gambatte", mgba: "mGBA", desmume2015: "DeSmuME", melonds: "melonDS", beetle_vb: "Beetle VB", genesis_plus_gx: "Genesis Plus GX", picodrive: "PicoDrive", yabause: "Yabause", pcsx_rearmed: "PCSX ReARMed", ppsspp: "PPSSPP", stella2014: "Stella", a5200: "a5200", prosystem: "ProSystem", virtualjaguar: "Virtual Jaguar", handy: "Handy", mednafen_pce: "Beetle PCE", mednafen_ngp: "Beetle NeoPop", mednafen_wswan: "Beetle Cygne", gearcoleco: "Gearcoleco", opera: "Opera", fbneo: "FinalBurn Neo", vice_x64sc: "VICE", puae: "PUAE", dosbox_pure: "DOSBox Pure", fuse: "Fuse", cap32: "Caprice32", vice_x128: "VICE", vice_xvic: "VICE", vice_xplus4: "VICE", vice_xpet: "VICE", "81": "EightyOne", prboom: "PrBoom" };
-const coreName = (c) => CORE_NAMES[c] || c;
+const coreName = (c) => store.state.emulators?.coreNames?.[c] || c;
 
 // ---------------- Library ----------------
 async function library(root) {

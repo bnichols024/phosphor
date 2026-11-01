@@ -75,6 +75,27 @@ test("install unpacks, finds the program, switches over, and undo goes back", as
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test("the updater can update and roll back one desktop emulator", async () => {
+  const { Emulators } = await import("../../server/emulators.js");
+  const root = tmpdir("phosphor-native-one-");
+  const n = new NativeEmulators({ bundledDir: path.join(root, "bundled"), userDir: path.join(root, "user"), platform: "linux", log: {} });
+  await n.install("flycast", await catalog.latestRelease(catalog.NATIVE.flycast, "linux"), { root: path.join(root, "bundled") });
+  const emu = new Emulators({ bundledDir: null, userDir: path.join(root, "web"), native: n, log: {} });
+  releases.flycast = "v2.9";
+  try {
+    const r = await emu.update({ only: { kind: "native", id: "flycast" } });
+    assert.deepEqual([r.change.from, r.change.to], ["2.7", "2.9"]);
+    assert.equal(n.active("flycast").version, "2.9");
+    assert.equal(n.active("dolphin"), null, "only the one asked for");
+    assert.equal(emu.summary().native.find((x) => x.id === "flycast").previous, "2.7");
+    await emu.rollbackOne({ kind: "native", id: "flycast" });
+    assert.equal(n.active("flycast").version, "2.7");
+  } finally {
+    releases.flycast = "v2.7";
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("findExe locates programs and macOS app bundles", () => {
   const d = tmpdir("phosphor-exe-");
   fs.mkdirSync(path.join(d, "Dolphin-x64"), { recursive: true });
