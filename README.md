@@ -48,11 +48,27 @@ Atari 2600/5200/7800, Jaguar (beta), TurboGrafx-16/PC Engine, Neo Geo Pocket, Wo
 mods), ZX Spectrum, ZX81, Amstrad CPC.
 
 **In the desktop app**, Phosphor also plays the consoles no browser can, using the full desktop
-emulators it ships with: Dreamcast (Flycast), GameCube and Wii (Dolphin). They open full screen,
-controllers work without setup (Xbox-style pads on Windows), saves stay in your Phosphor folder,
-and the same Update button keeps them current. PS2, PS3, Wii U, Switch, 3DS, Xbox, Xbox 360, Vita
-and PS4 are next. In the server version those games show up in the library with a note to play
-them in the desktop app.
+emulators it ships with:
+
+| Console | Emulator | You add |
+|---|---|---|
+| Dreamcast | Flycast | nothing |
+| GameCube, Wii | Dolphin | nothing |
+| Wii U | Cemu | nothing (keys.txt only for encrypted dumps) |
+| 3DS | Azahar | nothing (decrypted games) |
+| PS2 | PCSX2 | the BIOS from your PS2 |
+| PS3 | RPCS3 | Sony's free PS3 system software (PS3UPDAT.PUP); Phosphor installs it |
+| PS Vita | Vita3K | Sony's free Vita system software (PSVUPDAT.PUP); Phosphor installs it |
+| PS4 (beta) | shadPS4 | nothing; many games don't run yet |
+| Switch | Eden | the keys from your Switch (prod.keys) |
+| Xbox | xemu | your Xbox's MCPX and flash BIOS (a blank hard drive is included) |
+| Xbox 360 | Xenia Canary | nothing (Windows only) |
+
+They open full screen, saves stay in your Phosphor folder per player, and the same Update button
+keeps them current (each one can also be updated or rolled back on its own). Consoles waiting for
+a file show a lock that says exactly what to add; drop the file onto the window. PS3, PS4, Vita and
+Wii U games can be folders: Phosphor treats each game folder as one game. In the server version
+these games show up in the library with a note to play them in the desktop app.
 
 Consoles that cannot start without their maker's copyrighted BIOS (Sega CD, TurboGrafx-CD, 3DO,
 ColecoVision, Atari Lynx) are left out. If you own one of those BIOS files, drop it in and that

@@ -15,7 +15,7 @@ import { BY_ID } from "../server/systems.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "web/img/controllers");
-const UA = "Phosphor/1.6 (retro gaming app; https://github.com/bnichols024/phosphor)";
+const UA = "Phosphor/1.7 (retro gaming app; https://github.com/bnichols024/phosphor)";
 
 // system id -> Commons file. Most are Evan-Amos's public-domain studio photos.
 export const PHOTOS = {

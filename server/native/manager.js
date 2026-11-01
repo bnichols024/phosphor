@@ -60,12 +60,18 @@ export class NativeEmulators {
 
   async check() {
     const out = [];
-    for (const id of NATIVE_IDS.filter((x) => this.supported(x))) {
-      const rel = await latestRelease(NATIVE[id], this.platform);
+    // One emulator's site being down doesn't stop the others from updating.
+    await Promise.all(NATIVE_IDS.filter((x) => this.supported(x)).map(async (id) => {
       const have = this.active(id)?.version || null;
-      out.push({ id, name: NATIVE[id].name, from: have, to: rel.version, release: rel, changed: have !== rel.version });
-    }
-    return out;
+      try {
+        const rel = await latestRelease(NATIVE[id], this.platform);
+        out.push({ id, name: NATIVE[id].name, from: have, to: rel.version, release: rel, changed: have !== rel.version });
+      } catch (e) {
+        this.log.warn?.(`native: ${NATIVE[id].name}: ${e.message}`);
+        out.push({ id, name: NATIVE[id].name, from: have, to: have, error: e.message, changed: false });
+      }
+    }));
+    return NATIVE_IDS.map((id) => out.find((o) => o.id === id)).filter(Boolean);
   }
 
   // Download + unpack one emulator into `root` (default: the update folder) and make it active.
@@ -84,6 +90,7 @@ export class NativeEmulators {
       await fsp.rm(archive, { force: true });
       const exe = findExe(staging, emu.exe[this.platform]);
       if (!exe) throw new Error(`${emu.name} download didn't contain the program.`);
+      if (this.platform !== "win32" && !exe.endsWith(".app")) await fsp.chmod(path.join(staging, exe), 0o755).catch(() => {});
       const manifest = { emulator: id, version: rel.version, platform: this.platform, exe, file: rel.file, installedAt: new Date().toISOString() };
       await fsp.writeFile(path.join(staging, "manifest.json"), JSON.stringify(manifest, null, 2));
       await fsp.rm(final, { recursive: true, force: true });

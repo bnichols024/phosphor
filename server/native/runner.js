@@ -32,16 +32,30 @@ export class NativeRunner {
     return c ? { running: true, gameId: c.gameId, emulator: c.emulator, startedAt: c.startedAt } : { running: false, last: this.last || null };
   }
 
-  // emulatorId, game (absolute path), saveDir (player's save folder), dataDir (emulator settings)
-  start({ emulatorId, game, saveDir, dataDir, gameId, profileId }) {
-    if (this.current) throw Object.assign(new Error(`${NATIVE[this.current.emulator].name} is already running a game. Close it first.`), { status: 409 });
+  // emulatorId, game (absolute path), saveDir (player's save folder), dataDir (emulator settings),
+  // sysFiles (the player's BIOS/keys/firmware paths for this console).
+  async start({ emulatorId, game, saveDir, dataDir, gameId, profileId, sysFiles = null, onStep = () => {} }) {
+    if (this.current || this.preparing) throw Object.assign(new Error(`${NATIVE[(this.current || this.preparing).emulator].name} is already running a game. Close it first.`), { status: 409 });
     const emu = NATIVE[emulatorId];
     const exe = this.native.exePath(emulatorId);
     if (!exe) throw Object.assign(new Error(`${emu.name} isn't installed. Open Settings › Emulators and press Update.`), { status: 503 });
     fs.mkdirSync(saveDir, { recursive: true });
     fs.mkdirSync(dataDir, { recursive: true });
-    const { args, env } = emu.launch({ game, saveDir, dataDir, platform: this.native.platform });
     const program = programPath(exe);
+    const ctx = { game, saveDir, dataDir, platform: this.native.platform, sysFiles };
+    this.preparing = { emulator: emulatorId };
+    let args, env;
+    try {
+      // One-time setup some emulators need (installing Sony's system software), run to completion.
+      for (const step of (await emu.prepare?.(ctx)) || []) {
+        onStep(step.message);
+        this.log.info?.(`native: ${emu.name} ${step.args.join(" ")}`);
+        const code = await this._runOnce(program, step.args, { ...process.env, ...(step.env || {}) });
+        if (code !== 0) throw Object.assign(new Error(`${emu.name} couldn't finish setting up (${step.message.replace(/…$/, "")}).`), { status: 500 });
+        fs.writeFileSync(step.marker, new Date().toISOString());
+      }
+      ({ args, env } = await emu.launch(ctx));
+    } finally { this.preparing = null; }
     const child = this.spawn(program, args, {
       cwd: path.dirname(program),
       env: { ...process.env, ...env },
@@ -69,6 +83,15 @@ export class NativeRunner {
     child.on("exit", (code) => finish(code, null));
     this.onStart({ gameId, profileId, emulator: emulatorId });
     return { started: true, emulator: emu.name };
+  }
+
+  _runOnce(program, args, env) {
+    return new Promise((resolve) => {
+      const p = this.spawn(program, args, { cwd: path.dirname(program), env, stdio: ["ignore", "ignore", "ignore"] });
+      const timer = setTimeout(() => p.kill(), 15 * 60 * 1000);
+      p.on("error", () => { clearTimeout(timer); resolve(-1); });
+      p.on("exit", (code) => { clearTimeout(timer); resolve(code); });
+    });
   }
 
   stop() {

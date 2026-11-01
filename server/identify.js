@@ -49,11 +49,24 @@ async function sniffDisc(file) {
   const pvdBuf = await readHead(file, 64, pvd);
   const sysId = ascii(pvdBuf, 8, 32).trim();
   if (sysId === "PSP GAME") return "psp";
-  if (sysId === "PLAYSTATION") return "psx";
+  if (sysId === "PS3VOLUME") return "ps3";
+  if (sysId === "PLAYSTATION") {
+    // PS1 and PS2 discs both say PLAYSTATION; a PS2 disc's SYSTEM.CNF boots with "BOOT2".
+    const head4 = await readHead(file, 4 * 1024 * 1024);
+    return /BOOT2\s*=/.test(head4.toString("latin1")) ? "ps2" : "psx";
+  }
   if (ascii(pvdBuf, 1, 5) === "CD001" && raw) {
     // Sony licence text sits in sector 4 of PlayStation discs.
     const lic = await readHead(file, 128, 4 * 2352 + data0);
     if (ascii(lic, 0, 128).includes("Sony Computer Entertainment")) return "psx";
+  }
+  if (!raw) {
+    // Xbox discs (XDVDFS): the original Xbox at 64 KB (or after the video partition in full
+    // Redump images), the Xbox 360 after its larger video partition.
+    for (const [off, sys] of [[0x10000, "xbox"], [0x18310000, "xbox"], [0xfda0000, "xbox360"], [0x2090000, "xbox360"]]) {
+      const b = await readHead(file, 20, off).catch(() => null);
+      if (b && ascii(b, 0, 20) === "MICROSOFT*XBOX*MEDIA") return sys;
+    }
   }
   if (raw) {
     // PC Engine CD: data track carries "PC Engine CD-ROM SYSTEM" early on.
@@ -103,7 +116,7 @@ async function sniffSerial(file, system) {
   try {
     const head = await readHead(file, 4 * 1024 * 1024);
     const text = head.toString("latin1");
-    if (system === "psx") {
+    if (system === "psx" || system === "ps2") {
       const m = text.match(/cdrom0?:\\?\\?([A-Z]{4})[_-](\d{3})\.(\d{2})/i);
       if (m) return `${m[1]}${m[2]}${m[3]}`.toUpperCase();
     }
@@ -163,9 +176,17 @@ function isCompanionOnly(ext) { return ["bin", "img", "sub", "wav", "ogg", "mp3"
 
 // Main entry. Returns null when the file isn't a game on its own.
 // { system, crc, serial, discSystem, match: {name,...}|null, files: [abs paths], reason }
-export async function identify(file, { folderSystem = null, gamedb, arcadeHint = false } = {}) {
+export async function identify(file, { folderSystem = null, gamedb, arcadeHint = false, folderGame = null } = {}) {
   const ext = path.extname(file).slice(1).toLowerCase();
   const st = await fsp.stat(file);
+  if (folderGame) {
+    // A game that's a folder (PS3, PS4, Vita, Wii U): named from its own info file.
+    const sys = folderGame.system;
+    let match = folderGame.serial ? gamedb.bySerial(sys, folderGame.serial.replace(/[^A-Z0-9]/gi, "").toUpperCase()) : null;
+    if (!match && folderGame.title) match = gamedb.byTitle(sys, folderGame.title);
+    return { system: sys, crc: null, serial: folderGame.serial || null, match, files: [file], reason: "game folder",
+      title: folderGame.title || path.basename(folderGame.root), size: st.size, mtime: Math.floor(st.mtimeMs) };
+  }
   const base = path.basename(file, path.extname(file));
   let system = null;
   let reason = "";
@@ -209,7 +230,7 @@ export async function identify(file, { folderSystem = null, gamedb, arcadeHint =
       reason = "eboot";
     } else if (ext === "cso") { system = "psp"; reason = "extension"; }
     if (!system && folderSystem && BY_ID[folderSystem] && (BY_ID[folderSystem].discExts || []).includes(ext)) { system = folderSystem; reason = "folder"; }
-    if (system === "psx" || system === "psp") {
+    if (system === "psx" || system === "psp" || system === "ps2") {
       const dataFile = ext === "cue" || ext === "m3u" ? files.find((f) => /\.(bin|img|iso)$/i.test(f)) : file;
       if (dataFile && fs.existsSync(dataFile) && !/\.chd$/i.test(dataFile)) serial = await sniffSerial(dataFile, system);
     }

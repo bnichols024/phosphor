@@ -62,7 +62,7 @@ export function buildApi(ctx) {
       version,
       profile: publicProfile(profile),
       profiles: db.all("SELECT * FROM profiles ORDER BY id").map(publicProfile),
-      systems: SYSTEMS.filter((s) => !(s.bios?.required && !ready[s.id]) && (!kidSystems(profile) || kidSystems(profile).has(s.id))).map((s) => ({ ...publicSystem(s), count: counts[s.id] || 0, locked: false, emulatorReady: s.native ? !!native?.exePath(s.native) : emulators.hasCore(s.core) })),
+      systems: SYSTEMS.filter((s) => !(s.bios?.required && !ready[s.id]) && (!kidSystems(profile) || kidSystems(profile).has(s.id))).map((s) => ({ ...publicSystem(s), count: counts[s.id] || 0, locked: !!(s.needs && !ready[s.id]), emulatorReady: s.native ? !!native?.exePath(s.native) : emulators.hasCore(s.core) })),
       hiddenSystems: SYSTEMS.filter((s) => s.bios?.required && !ready[s.id]).map((s) => ({ id: s.id, name: s.name, games: counts[s.id] || 0, biosFiles: s.bios.files.map((f) => f.name) })),
       library: { ...library.status, root: paths.root, dropFolder: library.dropDir, total: SYSTEMS.filter((s) => !(s.bios?.required && !ready[s.id])).reduce((a, s) => a + (counts[s.id] || 0), 0) },
       emulators: emulators.summary(),
@@ -332,7 +332,8 @@ export function buildApi(ctx) {
       return json(res, 200, {
         game: { ...gameRow(g, play), developer: g.developer, publisher: g.publisher },
         system: publicSystem(sys), profile: publicProfile(profile),
-        native: { emulator: NATIVE[sys.native].name, desktop: !!runner, installed: !!native?.exePath(sys.native), local: isLocal(req), status: runner?.status() || null },
+        native: { emulator: NATIVE[sys.native].name, desktop: !!runner, installed: !!native?.exePath(sys.native), local: isLocal(req), status: runner?.status() || null,
+          supported: !native || native.supported(sys.native), needs: sys.needs && !(await biosReady())[sys.id] ? publicSystem(sys).needs : null },
       });
     }
     const active = emulators.active();
@@ -434,7 +435,7 @@ export function buildApi(ctx) {
   // ---- desktop emulators ----
   // Starts the game in its desktop emulator on this computer. Only from the computer itself: a
   // phone on the Wi-Fi shouldn't be able to pop a game up on someone's screen.
-  r.post("/api/games/:id/native", (req, res, { id }) => {
+  r.post("/api/games/:id/native", async (req, res, { id }) => {
     const profile = profileOf(req);
     const g = gameOr404(id);
     const sys = BY_ID[g.system];
@@ -442,6 +443,9 @@ export function buildApi(ctx) {
     if (!runner) throw new HttpError(409, `${sys.short} games play in the Phosphor desktop app for Windows, Mac and Linux.`);
     if (!isLocal(req)) throw new HttpError(403, `Start ${sys.short} games on the computer running Phosphor.`);
     const emu = NATIVE[sys.native];
+    if (!native.supported(sys.native)) throw new HttpError(409, `${sys.short} games aren't available on this computer yet: ${emu.name} only runs on Windows.`);
+    const bios = await library.biosStatus();
+    if (sys.needs && !bios[sys.id]?.ready) throw new HttpError(409, sys.needs.help);
     const files = JSON.parse(g.files);
     const safeProfile = profile.name.replace(/[^\w\- ]+/g, "").trim() || `Player ${profile.id}`;
     const dataDir = path.join(paths.internal, "native-data", sys.native, String(profile.id));
@@ -456,8 +460,9 @@ export function buildApi(ctx) {
     const now = Date.now();
     let out;
     try {
-      out = runner.start({
-        emulatorId: sys.native, gameId: g.id, profileId: profile.id, game, dataDir,
+      out = await runner.start({
+        emulatorId: sys.native, gameId: g.id, profileId: profile.id, game, dataDir, sysFiles: bios[sys.id]?.paths || null,
+        onStep: (message) => bus.emit("native", { running: false, preparing: true, gameId: g.id, message }),
         saveDir: path.join(library.savesDir, safeProfile, emu.saveFolder),
       });
     } catch (e) { throw new HttpError(e.status || 500, e.message); }

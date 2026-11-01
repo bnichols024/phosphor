@@ -87,6 +87,15 @@ export const SYSTEMS = [
     ] },
   },
   {
+    id: "3ds", name: "Nintendo 3DS", short: "3DS", maker: "Nintendo", year: 2011, kind: "handheld",
+    folder: "3DS", aliases: ["3ds", "n3ds", "nintendo3ds"],
+    exts: ["3ds", "cci", "cxi", "cia", "3dsx"], discExts: [], core: null, cores: [], native: "azahar",
+    dats: [NOINTRO("Nintendo - Nintendo 3DS"), NOINTRO("Nintendo - Nintendo 3DS (Digital)")],
+    meta: "Nintendo - Nintendo 3DS", thumbs: ["Nintendo - Nintendo 3DS", "Nintendo - Nintendo 3DS Digital"],
+    color: "#ef4444", icon: "nds", pad: "nds", status: "great", box: 0.9,
+    note: "Use decrypted games (.3ds, .cci, .cxi, .cia) and homebrew (.3dsx).",
+  },
+  {
     id: "vb", name: "Virtual Boy", short: "Virtual Boy", maker: "Nintendo", year: 1995, kind: "console",
     folder: "Virtual Boy", aliases: ["vb", "virtualboy"],
     exts: ["vb", "vboy"], core: "beetle_vb", cores: ["beetle_vb"],
@@ -111,6 +120,23 @@ export const SYSTEMS = [
     meta: "Nintendo - Wii", thumbs: ["Nintendo - Wii"],
     color: "#94a3b8", icon: "disc", pad: "snes", status: "great", box: 0.71,
     builtinBios: "Wii system software replacement built into Dolphin",
+  },
+  {
+    id: "wiiu", name: "Nintendo Wii U", short: "Wii U", maker: "Nintendo", year: 2012, kind: "console",
+    folder: "Wii U", aliases: ["wiiu", "nintendowiiu"],
+    exts: ["wud", "wux", "wua", "wuhb", "rpx"], discExts: [], core: null, cores: [], native: "cemu", folderGames: true,
+    dats: [NOINTRO("Nintendo - Wii U (Digital)")], meta: null, thumbs: ["Nintendo - Wii U"],
+    color: "#0891b2", icon: "disc", pad: "snes", status: "great", box: 0.71,
+    note: "Decrypted games (.wua, or a folder with code, content and meta) just work. Encrypted .wud/.wux dumps also need keys.txt in the BIOS folder.",
+  },
+  {
+    id: "switch", name: "Nintendo Switch", short: "Switch", maker: "Nintendo", year: 2017, kind: "console",
+    folder: "Switch", aliases: ["switch", "nintendoswitch", "nx"],
+    exts: ["nsp", "xci", "nro"], discExts: [], core: null, cores: [], native: "eden",
+    dats: [], meta: null, thumbs: [],
+    color: "#e60012", icon: "handheld-wide", pad: "snes", status: "good", box: 0.62,
+    needs: { files: "switch", chip: "Needs keys", label: "your Switch keys", help: "Switch games need the keys from your own Switch (prod.keys, and title.keys if you have it). Drop them into the BIOS folder or onto this window." },
+    note: "Some games also need the Switch firmware installed in Eden.",
   },
   // ---- Sega ----
   {
@@ -216,6 +242,44 @@ export const SYSTEMS = [
     note: "Needs a fast PC or recent phone. Runs best in Chrome or Edge.",
     builtinBios: "PPSSPP's built-in system software",
   },
+  {
+    id: "ps2", name: "PlayStation 2", short: "PS2", maker: "Sony", year: 2000, kind: "console",
+    folder: "PS2", aliases: ["ps2", "playstation2", "sonyplaystation2"],
+    exts: [], discExts: ["iso", "chd", "cue", "bin", "gz", "zso", "m3u"], core: null, cores: [], native: "pcsx2",
+    dats: [REDUMP("Sony - PlayStation 2")], disc: true,
+    meta: "Sony - PlayStation 2", thumbs: ["Sony - PlayStation 2"],
+    color: "#2563eb", icon: "disc", pad: "psx", status: "great", box: 0.71,
+    needs: { files: "ps2", chip: "Needs BIOS", label: "your PS2 BIOS", help: "PS2 games need the BIOS from your own PlayStation 2 (a 4 MB .bin file such as SCPH-70012.bin). Drop it into the BIOS folder or onto this window." },
+  },
+  {
+    id: "ps3", name: "PlayStation 3", short: "PS3", maker: "Sony", year: 2006, kind: "console",
+    folder: "PS3", aliases: ["ps3", "playstation3", "sonyplaystation3"],
+    exts: [], discExts: ["iso"], core: null, cores: [], native: "rpcs3", folderGames: true,
+    dats: [REDUMP("Sony - PlayStation 3"), NOINTRO("Sony - PlayStation 3 (PSN)")], disc: true,
+    meta: "Sony - PlayStation 3", thumbs: ["Sony - PlayStation 3", "Sony - PlayStation 3 Downloadable"],
+    color: "#334155", icon: "disc", pad: "psx", status: "good", box: 0.86,
+    needs: { files: "ps3", chip: "Needs firmware", label: "the PS3 system software", help: "PS3 games need Sony's PS3 system software (PS3UPDAT.PUP), a free download from PlayStation's website. Drop the file into the BIOS folder or onto this window and Phosphor installs it the first time you play.",
+      link: { href: "https://www.playstation.com/en-us/support/hardware/ps3/system-software/", label: "Get it from PlayStation" } },
+    note: "Put each game in its own folder (with PS3_GAME or USRDIR inside), or as an .iso.",
+  },
+  {
+    id: "ps4", name: "PlayStation 4", short: "PS4", maker: "Sony", year: 2013, kind: "console",
+    folder: "PS4", aliases: ["ps4", "playstation4", "sonyplaystation4"],
+    exts: [], discExts: [], core: null, cores: [], native: "shadps4", folderGames: true,
+    dats: [], meta: null, thumbs: ["Sony - PlayStation 4"],
+    color: "#1d4ed8", icon: "disc", pad: "psx", status: "experimental", box: 0.86,
+    note: "PS4 emulation is young: some games play, many don't yet. Put each game in its own folder (with eboot.bin and sce_sys inside).",
+  },
+  {
+    id: "vita", name: "PlayStation Vita", short: "PS Vita", maker: "Sony", year: 2011, kind: "handheld",
+    folder: "PS Vita", aliases: ["vita", "psvita", "playstationvita", "psv"],
+    exts: ["vpk"], discExts: [], core: null, cores: [], native: "vita3k", folderGames: true,
+    dats: [NOINTRO("Sony - PlayStation Vita"), NOINTRO("Sony - PlayStation Vita (PSN)")],
+    meta: "Sony - PlayStation Vita", thumbs: ["Sony - PlayStation Vita"],
+    color: "#0ea5e9", icon: "psp", pad: "psp", status: "good", box: 0.58,
+    needs: { files: "vita", chip: "Needs firmware", label: "the PS Vita system software", help: "PS Vita games need Sony's PS Vita system software (PSVUPDAT.PUP), a free download from PlayStation's website. Drop it into the BIOS folder or onto this window and Phosphor installs it the first time you play.",
+      link: { href: "https://www.playstation.com/en-us/support/hardware/psvita/system-software/", label: "Get it from PlayStation" } },
+  },
   // ---- Atari ----
   {
     id: "atari2600", name: "Atari 2600", short: "Atari 2600", maker: "Atari", year: 1977, kind: "console",
@@ -316,6 +380,26 @@ export const SYSTEMS = [
       { name: "panafz1.bin", md5: "f47264dd47fe30f73ab3c010015c155b", label: "Panasonic FZ-1 BIOS" },
       { name: "goldstar.bin", md5: "8639fd5e549bd6238cfee79e3e749114", label: "Goldstar BIOS" },
     ] },
+  },
+  // ---- Microsoft ----
+  {
+    id: "xbox", name: "Xbox", short: "Xbox", maker: "Microsoft", year: 2001, kind: "console",
+    folder: "Xbox", aliases: ["xbox", "microsoftxbox", "ogxbox"],
+    exts: ["xiso"], discExts: ["iso"], core: null, cores: [], native: "xemu",
+    dats: [REDUMP("Microsoft - Xbox")], disc: true,
+    meta: "Microsoft - Xbox", thumbs: ["Microsoft - Xbox"],
+    color: "#16a34a", icon: "disc", pad: "snes", status: "good", box: 0.71,
+    needs: { files: "xbox", chip: "Needs BIOS", label: "your Xbox BIOS", help: "Xbox games need two files from your own Xbox: the MCPX boot ROM (512 bytes, e.g. mcpx_1.0.bin) and the flash BIOS (256 KB or 1 MB .bin). Drop them into the BIOS folder or onto this window." },
+    note: "Use games in XISO format (.iso). Phosphor gives each player a blank hard drive for saves.",
+  },
+  {
+    id: "xbox360", name: "Xbox 360", short: "Xbox 360", maker: "Microsoft", year: 2005, kind: "console",
+    folder: "Xbox 360", aliases: ["xbox360", "x360", "microsoftxbox360"],
+    exts: ["xex"], discExts: ["iso"], core: null, cores: [], native: "xenia",
+    dats: [REDUMP("Microsoft - Xbox 360")], disc: true,
+    meta: "Microsoft - Xbox 360", thumbs: ["Microsoft - Xbox 360"],
+    color: "#65a30d", icon: "disc", pad: "snes", status: "experimental", box: 0.71,
+    note: "Xbox 360 games play in the Windows version of the desktop app.",
   },
   // ---- Arcade ----
   {
@@ -482,6 +566,9 @@ export function publicSystem(s) {
     pad: s.pad, needsBios: !!s.bios?.required, threads: !!s.threads,
     // Consoles played in a desktop emulator (desktop app only) instead of in the browser.
     native: s.native || null, nativeName: s.native ? NATIVE[s.native].name : null,
+    // Desktop consoles that need the player's own files (BIOS, keys, firmware) to start.
+    needs: s.needs ? { chip: s.needs.chip, label: s.needs.label, help: s.needs.help, link: s.needs.link || null } : null,
+    folderGames: !!s.folderGames,
     biosFiles: s.bios?.files?.map((f) => ({ name: f.name, label: f.label })) || [],
     // How this console's BIOS is handled: a free BIOS we ship, one built into the emulator,
     // not needed at all, or (5 systems) your own dump required.

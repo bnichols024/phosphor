@@ -207,7 +207,9 @@ async function library(root) {
       h("div.list", store.systemList.map((s) => {
         const b = bios[s.id];
         const yours = b?.files?.filter((f) => f.found) || [];
-        const [dot, label, detail] = yours.length
+        const [dot, label, detail] = s.needs && !b?.ready ? ["warn", s.needs.chip, s.needs.help]
+          : s.needs ? ["", "Ready", yours.map((f) => f.name).join(", ")]
+          : yours.length
           ? ["", "Using your BIOS", yours.map((f) => `${f.name}${f.verified ? " ✓" : ""}`).join(", ")]
           : s.bios === "included" ? ["", "Included", s.biosLabel]
             : s.bios === "builtin" ? ["", "Built in", s.biosLabel]

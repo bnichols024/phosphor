@@ -9,7 +9,7 @@ import { normTitle, parseName } from "./gamedb.js";
 
 const ssBase = () => process.env.PHOSPHOR_SCREENSCRAPER_URL || "https://api.screenscraper.fr/api2";
 const wikiBase = () => process.env.PHOSPHOR_WIKIPEDIA_URL || "https://en.wikipedia.org";
-const UA = "Phosphor/1.6 (retro gaming app; https://github.com/bnichols024/phosphor)";
+const UA = "Phosphor/1.7 (retro gaming app; https://github.com/bnichols024/phosphor)";
 
 // ScreenScraper system ids.
 export const SS_SYSTEMS = {

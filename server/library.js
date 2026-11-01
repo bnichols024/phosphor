@@ -9,10 +9,11 @@ import { EventEmitter } from "node:events";
 import { SYSTEMS, BY_ID, systemForFolder, EXT_INDEX, AMBIGUOUS_EXTS } from "./systems.js";
 import { identify, referencedFiles } from "./identify.js";
 import { parseName, sortTitle } from "./gamedb.js";
+import { readSfo, detectSystemFiles, SYSTEM_FILE_NAMES } from "./native/files.js";
 
 export const DROP_FOLDER = "Drop Games Here";
 // Bump when identification improves: the next startup re-checks every file once.
-export const IDENTIFY_VERSION = 4;
+export const IDENTIFY_VERSION = 5;
 const SKIP_EXTS = new Set(["txt", "nfo", "jpg", "jpeg", "png", "gif", "webp", "pdf", "srm", "sav", "state", "dat", "xml", "db", "ini", "cfg", "md", "url", "html", "htm", "sfv", "md5", "sha1", "ds_store", "lnk", "sub", "ecm", "wav", "ogg", "mp3", "flac", "aiff"]);
 const KNOWN_EXTS = new Set([...Object.keys(EXT_INDEX), ...AMBIGUOUS_EXTS, ...SYSTEMS.flatMap((s) => s.discExts || []), "tap", "sna", "dsk"]);
 
@@ -84,14 +85,20 @@ export class Library extends EventEmitter {
   // ---- BIOS ----
   async biosStatus() {
     const have = {};
+    const listing = [];
     const files = await walk(this.biosDir).catch(() => []);
     for (const f of files) {
       const st = await fsp.stat(f).catch(() => null);
-      if (!st || st.size > 16 * 1024 * 1024) continue;
+      if (!st) continue;
+      listing.push({ file: f, name: path.basename(f).toLowerCase(), size: st.size });
+      if (st.size > 16 * 1024 * 1024) continue; // firmware files: recognised by name, no checksum
       const key = `${f}|${st.size}|${st.mtimeMs}`;
       if (!this._md5Cache.has(key)) this._md5Cache.set(key, await md5File(f));
       have[path.basename(f).toLowerCase()] = { file: f, md5: this._md5Cache.get(key) };
     }
+    // Desktop consoles' own files (PS2 BIOS, Switch keys, Xbox BIOS, Sony firmware).
+    const known = new Set(Object.keys(this._biosByName()));
+    const sysFiles = await detectSystemFiles(listing, { exclude: known });
     const out = {};
     for (const s of SYSTEMS) {
       if (!s.bios) continue;
@@ -103,6 +110,12 @@ export class Library extends EventEmitter {
       });
       out[s.id] = { required: !!s.bios.required, ready: !s.bios.required || found.some((f) => f.found), yours: found.some((f) => f.found), files: found,
         included: s.includedBios?.[0]?.label || s.builtinBios || null };
+    }
+    for (const s of SYSTEMS) {
+      const det = sysFiles[s.needs?.files || s.id];
+      if (!det) continue;
+      out[s.id] = { required: !!s.needs, ready: det.ready, yours: Object.values(det.files).some(Boolean), paths: det.files,
+        files: Object.entries(det.files).map(([k, v]) => ({ name: v ? path.basename(v) : k, label: k, found: !!v, verified: !!v, file: v })), needs: s.needs || null };
     }
     out.arcade = { ready: true, neogeo: !!have["neogeo.zip"], files: [{ name: "neogeo.zip", label: "Neo Geo BIOS (only for Neo Geo games)", found: !!have["neogeo.zip"], verified: !!have["neogeo.zip"] }] };
     return out;
@@ -186,7 +199,7 @@ export class Library extends EventEmitter {
       if (!full && prev && prev.size === size && prev.mtime === Math.floor(st.mtimeMs) && !prev.missing_since) { done++; continue; }
       this._emit({ current: path.basename(c.main), done });
       try {
-        const id = await identify(c.main, { folderSystem: c.folderSystem, gamedb: this.gamedb, arcadeHint: c.folderSystem === "arcade" });
+        const id = await identify(c.main, { folderSystem: c.folderSystem, gamedb: this.gamedb, arcadeHint: c.folderSystem === "arcade", folderGame: c.folder });
         if (id) {
           const isNew = this._upsert(rel, c, id, size, prev);
           if (isNew) added++;
@@ -207,7 +220,7 @@ export class Library extends EventEmitter {
   }
 
   _upsert(rel, group, id, size, prev) {
-    const name = id.match?.name || path.basename(group.main, path.extname(group.main));
+    const name = id.match?.name || id.title || path.basename(group.main, path.extname(group.main));
     const p = parseName(name);
     const fileP = parseName(path.basename(group.main));
     const title = p.title;
@@ -264,6 +277,22 @@ export class Library extends EventEmitter {
       }
     }
 
+    // Desktop consoles' files: keys and firmware by name, a PS2 BIOS by its contents, Xbox BIOS by
+    // its usual names and sizes.
+    for (const f of all) {
+      if (handled.has(f)) continue;
+      const name = path.basename(f).toLowerCase();
+      const st = await fsp.stat(f).catch(() => null);
+      if (!st) continue;
+      let to = SYSTEM_FILE_NAMES.test(name) ? path.basename(f) : null;
+      if (!to && (st.size === 262144 || st.size === 1048576) && /\.bin$/.test(name) && /xbox|complex|4627|5838|5933|evox|m8plus|ind-bios|bios/.test(name) && !this._biosByName()[name]) to = path.basename(f);
+      if (!to && st.size >= 4 * 1024 * 1024 && st.size <= 16 * 1024 * 1024 && /\.bin$/.test(name)) {
+        const det = await detectSystemFiles([{ file: f, name, size: st.size }]);
+        if (det.ps2.ready) to = path.basename(f);
+      }
+      if (to) { await moveInto(f, this.biosDir, to); handled.add(f); moved++; }
+    }
+
     // Patches (.ips/.bps/.ups) go next to the game with the same name, wherever it lives.
     for (const f of all) {
       if (handled.has(f) || ![".ips", ".bps", ".ups"].includes(path.extname(f).toLowerCase())) continue;
@@ -283,7 +312,7 @@ export class Library extends EventEmitter {
       if (group.files.some((f) => handled.has(f))) continue;
       group.files.forEach((f) => handled.add(f));
       let id = null;
-      try { id = await identify(group.main, { gamedb: this.gamedb, arcadeHint: true }); } catch { id = null; }
+      try { id = await identify(group.main, { gamedb: this.gamedb, arcadeHint: true, folderGame: group.folder }); } catch { id = null; }
       if (!id) { unknown.push(path.relative(this.dropDir, group.main)); continue; }
       const dest = path.join(this.romsDir, BY_ID[id.system].folder);
       const stemOf = (x) => x.slice(0, x.length - path.extname(x).length);
@@ -343,6 +372,17 @@ const extOf = (f) => path.extname(f).slice(1).toLowerCase();
 // Turns a flat file list into games: cue/m3u/ccd + the files they reference become one game, and
 // "(Disc 1)", "(Disc 2)"... of the same title in the same folder become one multi-disc game.
 export async function groupGames(files) {
+  // Folder games (PS3, PS4, Vita, Wii U): the whole folder is one game, started from its main file.
+  const folders = new Map();
+  for (const f of files) {
+    if (!/(^|[\\/])eboot\.bin$|\.rpx$/i.test(f)) continue;
+    const g = await folderGame(f).catch(() => null);
+    if (g && !folders.has(g.root)) folders.set(g.root, g);
+  }
+  if (folders.size) {
+    const roots = [...folders.keys()].map((r) => r + path.sep);
+    files = files.filter((f) => !roots.some((r) => f.startsWith(r)));
+  }
   const companions = new Set();
   const sheets = files.filter((f) => ["cue", "m3u", "ccd", "gdi"].includes(extOf(f)));
   const refs = new Map();
@@ -376,7 +416,42 @@ export async function groupGames(files) {
     const filesAll = discs.flatMap((d) => [d.file, ...(refs.get(d.file) || [])]);
     groups.push({ main: discs[0].file, files: filesAll, discs: discs.length, discFiles: discs.map((d) => d.file) });
   }
+  for (const g of folders.values()) groups.push({ main: g.main, files: [g.main], discs: 1, folder: g });
   return groups;
+}
+
+// What kind of folder game a main file belongs to, with its title and ID from the game's own info.
+export async function folderGame(file) {
+  const base = path.basename(file).toLowerCase();
+  const dir = path.dirname(file);
+  const sfoIn = async (d) => (await readSfo(path.join(d, "PARAM.SFO"))) || (await readSfo(path.join(d, "param.sfo")));
+  if (base === "eboot.bin") {
+    if (path.basename(dir).toLowerCase() === "usrdir") {
+      // PS3: <game>/PS3_GAME/USRDIR/EBOOT.BIN (disc) or <game>/USRDIR/EBOOT.BIN (PSN).
+      let root = path.dirname(dir);
+      const sfo = await sfoIn(root);
+      if (path.basename(root).toLowerCase() === "ps3_game") root = path.dirname(root);
+      return { system: "ps3", root, main: file, title: sfo?.TITLE || null, serial: sfo?.TITLE_ID || null };
+    }
+    const sfo = await sfoIn(path.join(dir, "sce_sys"));
+    if (sfo) {
+      // PS Vita title IDs start PCSA-PCSH; everything else with this layout is a PS4 game.
+      const id = sfo.TITLE_ID || "";
+      return { system: /^PCS[A-H]/.test(id) ? "vita" : "ps4", root: dir, main: file, title: sfo.TITLE || null, serial: id || null };
+    }
+    return null;
+  }
+  if (base.endsWith(".rpx") && path.basename(dir).toLowerCase() === "code") {
+    // Wii U: <game>/code/<name>.rpx with meta/meta.xml; cos.xml names the program to start.
+    const root = path.dirname(dir);
+    const cos = await fsp.readFile(path.join(dir, "cos.xml"), "utf8").catch(() => "");
+    const want = cos.match(/<argstr[^>]*>([^<]+\.rpx)<\/argstr>/i)?.[1];
+    if (want && want.toLowerCase() !== base) return null; // another .rpx in the same folder is the main one
+    const meta = await fsp.readFile(path.join(root, "meta", "meta.xml"), "utf8").catch(() => "");
+    const title = meta.match(/<longname_en[^>]*>([^<]+)<\/longname_en>/)?.[1]?.replace(/\s+/g, " ").trim() || null;
+    return { system: "wiiu", root, main: file, title, serial: meta.match(/<product_code[^>]*>([^<]+)</)?.[1] || null };
+  }
+  return null;
 }
 
 async function totalSize(files) {
@@ -418,6 +493,17 @@ async function moveInto(src, dir, name) {
 
 // Moves a game's files together, keeping relative layout so cue sheets still find their tracks.
 async function moveGroup(group, destDir) {
+  if (group.folder) {
+    // A folder game moves as one folder.
+    const target = await uniqueTarget(destDir, path.basename(group.folder.root));
+    await fsp.mkdir(destDir, { recursive: true });
+    try { await fsp.rename(group.folder.root, target); } catch (e) {
+      if (e.code !== "EXDEV") throw e;
+      await fsp.cp(group.folder.root, target, { recursive: true });
+      await fsp.rm(group.folder.root, { recursive: true, force: true });
+    }
+    return path.join(target, path.relative(group.folder.root, group.main));
+  }
   const srcDir = path.dirname(group.main);
   const multi = group.files.length > 1;
   // Multi-file games get their own folder so tracks never collide with other games.

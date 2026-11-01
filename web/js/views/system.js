@@ -85,7 +85,8 @@ export default async function systemView({ params, query }) {
         h("span.chip.solid", count),
         sys.native ? h("span.chip", ic("cpu"), store.state.desktop ? (ready ? `Plays in ${sys.nativeName}` : `${sys.nativeName} not installed`) : "Desktop app")
           : h("span.chip", ic("cpu"), ready ? "Emulator installed" : "Emulator missing"),
-        sys.bios === "yours" ? null : h("span.chip", { title: sys.biosLabel || "" }, ic("check"), { included: "BIOS included", builtin: "BIOS built in", none: "No BIOS needed" }[sys.bios]),
+        sys.needs ? h("span.chip", ic(sys.locked ? "lock" : "check"), sys.locked ? sys.needs.chip : "Your files are ready")
+          : sys.bios === "yours" ? null : h("span.chip", { title: sys.biosLabel || "" }, ic("check"), { included: "BIOS included", builtin: "BIOS built in", none: "No BIOS needed" }[sys.bios]),
         sys.status === "experimental" ? h("span.chip", { style: { color: "var(--warn)" } }, ic("alert"), "Beta") : null,
         h("span.chip", ic("folder"), `ROMs/${sys.folder}`)),
       sys.native && !store.state.desktop ? h("div.note.info", { style: { marginTop: "16px", maxWidth: "720px" } }, ic("info"),
@@ -93,7 +94,9 @@ export default async function systemView({ params, query }) {
       sys.note ? h("div.note.info", { style: { marginTop: "16px", maxWidth: "720px" } }, ic("info"), h("div", sys.note)) : null,
       sys.threads && !window.isSecureContext ? h("div.note", { style: { marginTop: "12px", maxWidth: "720px" } }, ic("lock"),
         h("div", `${sys.short} games need a secure connection: open Phosphor with https:// (or http://localhost on the server itself). Every other console works over plain http.`)) : null,
-      sys.locked ? h("div.note", { style: { marginTop: "16px", maxWidth: "720px" } }, ic("lock"),
+      sys.locked && sys.needs ? h("div.note", { style: { marginTop: "16px", maxWidth: "720px" } }, ic("lock"),
+        h("div", sys.needs.help, sys.needs.link ? h("div", { style: { marginTop: "10px" } }, h("a.btn.small", { href: sys.needs.link.href, target: "_blank", rel: "noopener", "data-nav": "" }, ic("download"), sys.needs.link.label)) : null)) : null,
+      sys.locked && !sys.needs ? h("div.note", { style: { marginTop: "16px", maxWidth: "720px" } }, ic("lock"),
         h("div", `${sys.short} needs the console's BIOS (${sys.biosFiles.map((f) => f.name).join(" or ")}). Drop it into the BIOS folder or onto this window and these games unlock.`)) : null));
 
   if (!games.length) {

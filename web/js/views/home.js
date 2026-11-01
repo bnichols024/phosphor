@@ -84,7 +84,7 @@ export function sysCard(s) {
   return h("a.syscard", { href: `/system/${s.id}`, "data-nav": "", "--sys": s.color, class: [s.count ? "" : "empty", s.photo ? "has-photo" : ""].filter(Boolean).join(" ") },
     h("div.glowspot"),
     consoleArt(s),
-    s.locked ? h("span.chip.lock", ic("lock"), "Needs BIOS") : null,
+    s.locked ? h("span.chip.lock", ic("lock"), s.needs?.chip || "Needs BIOS") : null,
     h("div.maker", s.maker),
     h("div.name", s.short === s.name || s.short.length > 14 ? s.name : s.short),
     h("div.count", s.count ? plural(s.count, "game") : "No games yet", s.status === "experimental" ? h("span.chip", "Beta") : null));

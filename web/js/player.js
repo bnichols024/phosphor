@@ -180,13 +180,30 @@ async function playNative() {
   if (!N.desktop) return fail(`${L.system.short} games play in the free Phosphor desktop app for Windows, Mac and Linux, which runs ${N.emulator} on your computer. Browsers can't run ${L.system.short} games.`,
     { info: true, link: { href: "https://github.com/bnichols024/phosphor/releases/latest", label: "Get the desktop app" } });
   if (!N.local) return fail(`${L.system.short} games start on the computer running Phosphor. Open Phosphor there and press Play.`, { info: true });
+  if (N.supported === false) return fail(`${L.system.short} games play in the Windows version of Phosphor: ${N.emulator} doesn't run on this computer yet.`, { info: true });
+  if (N.needs) return fail(N.needs.help, { info: true, link: N.needs.link });
   if (!N.installed) return fail(`${N.emulator} isn't installed yet. Open Settings › Emulators and press Update.`);
   $(".status", loader).textContent = `Starting ${N.emulator}…`;
+  let launched = false;
+  const done = (st) => {
+    if (!launched || st?.running || st?.preparing || !st?.last || st.last.gameId !== gameId) return false;
+    if (st.last.failed) fail(st.last.message || `${N.emulator} closed unexpectedly.`);
+    else exitTo();
+    return true;
+  };
+  // Listen first: one-time setup (installing system software) reports progress before the game starts.
+  const es = new EventSource("/api/events");
+  es.addEventListener("native", (e) => {
+    const st = JSON.parse(e.data);
+    if (st.preparing && st.gameId === gameId) { $(".status", loader).textContent = st.message; return; }
+    if (done(st)) es.close();
+  });
   try {
     const res = await fetch(`/api/games/${gameId}/native`, { method: "POST", headers: H });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "The game couldn't be started.");
-  } catch (e) { return fail(e.message); }
+  } catch (e) { es.close(); return fail(e.message); }
+  launched = true;
   $(".progress", loader)?.remove();
   $("h1", loader).textContent = L.game.title;
   $(".status", loader).textContent = `Playing in ${N.emulator}. Quit the game (Esc, or Exit in its menu) to come back here.`;
@@ -194,14 +211,6 @@ async function playNative() {
     el("button", { class: "hbtn", style: "width:auto;padding:0 18px", onclick: async () => {
       await fetch("/api/native/stop", { method: "POST", headers: H }).catch(() => {});
     } }, "Stop the game")));
-  const done = (st) => {
-    if (st?.running || !st?.last || st.last.gameId !== gameId) return false;
-    if (st.last.failed) fail(st.last.message || `${N.emulator} closed unexpectedly.`);
-    else exitTo();
-    return true;
-  };
-  const es = new EventSource("/api/events");
-  es.addEventListener("native", (e) => { if (done(JSON.parse(e.data))) es.close(); });
   // Fallback in case the event stream drops while the game runs.
   const poll = setInterval(async () => {
     const st = await fetch("/api/native", { headers: H }).then((r) => r.json()).catch(() => null);

@@ -30,5 +30,5 @@ export const go = (path) => store.go(path);
 
 // Systems the player can actually use, in a sensible order.
 export function visibleSystems({ includeEmpty = false } = {}) {
-  return store.systemList.filter((s) => (includeEmpty || s.count > 0) && !(s.locked && s.count === 0));
+  return store.systemList.filter((s) => (includeEmpty || s.count > 0) && !(s.locked && !s.needs && s.count === 0));
 }

@@ -30,6 +30,13 @@ export default async function library() {
         h("div", { style: { color: "var(--text-2)", fontWeight: 600, fontSize: "14px", margin: "0 0 12px" } }, KIND_LABEL[k] || k),
         h("div.systems", list.map(sysCard))))));
   }
+  // Desktop consoles waiting for a file only the player can supply (BIOS, keys, firmware).
+  const needing = all.filter((s) => s.count === 0 && s.locked && s.needs);
+  if (needing.length) {
+    el.append(h("div.sys-section", h("h3", "Needs a file from you"),
+      h("p", { style: { color: "var(--text-2)", margin: "-4px 0 14px", maxWidth: "70ch" } }, "These consoles need something from your own console (or Sony's free system software). Open one to see exactly which file, then drop it onto this window."),
+      h("div.systems", needing.map(sysCard))));
+  }
   // Consoles that need a copyrighted BIOS are left out entirely. Only mention them if the user
   // actually has games for one, so those games don't seem to vanish.
   const waiting = (store.state.hiddenSystems || []).filter((x) => x.games);
