@@ -5,7 +5,6 @@ name: Release
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -21,8 +20,24 @@ jobs:
       - run: npm run emulators
       - run: npm test
 
-  desktop:
+  # One draft release for the three builds to upload into (if each created its own, they'd race
+  # and make duplicates). It's published at the end, once every build is there, so the app's
+  # updater never sees a half-finished release.
+  draft:
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --title "Phosphor ${TAG#v}" \
+              --notes "Download the installer for your computer below. Phosphor updates itself from here on Windows and Linux (AppImage); on a Mac, download the new version and install it over the old one."
+
+  desktop:
+    needs: draft
     strategy:
       fail-fast: false
       matrix:
@@ -47,3 +62,13 @@ jobs:
       - run: npx electron-builder ${{ matrix.args }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    needs: desktop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --latest

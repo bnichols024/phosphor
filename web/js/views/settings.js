@@ -2,6 +2,7 @@ import { api } from "../api.js";
 import { store, go, refreshState } from "../store.js";
 import { h, ic, toast, toastError, sheet, confirmBox, promptBox, timeAgo, plural } from "../ui.js";
 import { sound } from "../sound.js";
+import { updates, watchUpdates } from "../update.js";
 import { ACTIONS, DEFAULTS, POSITIONAL, PAD_BUTTONS, padName, keyName, layoutFor } from "../controls.js";
 
 const SECTIONS = [
@@ -532,9 +533,36 @@ async function general(root) {
 }
 
 // ---------------- About ----------------
+// Desktop app: is there a newer Phosphor, and the button that gets it.
+function updateRow() {
+  if (!updates.available()) return null;
+  const desc = h("div.d", "");
+  const btn = h("button.btn.small", { "data-nav": "" });
+  const row = h("div.list-item", ic("download"), h("div.grow", h("div.t", "Updates"), desc), btn);
+  const stop = watchUpdates((s) => {
+    if (!row.isConnected && row.dataset.shown) return stop();
+    row.dataset.shown = "1";
+    const label = {
+      idle: ["Phosphor checks for new versions on its own.", "Check now", updates.check],
+      checking: ["Checking…", null],
+      none: [`You have the newest version (${s.current}).`, "Check again", updates.check],
+      available: [`Phosphor ${s.version} is out.`, s.inApp ? "Update" : "Download", updates.start],
+      downloading: [`Downloading ${s.version}… ${s.percent || 0}%`, null],
+      ready: [`Phosphor ${s.version} is ready. Restart to finish.`, "Restart now", updates.restart],
+      error: [s.error || "The last check didn't work.", "Try again", s.version && s.version !== s.current ? updates.start : updates.check],
+    }[s.state] || ["", null];
+    desc.textContent = label[0];
+    btn.style.display = label[1] ? "" : "none";
+    btn.textContent = label[1] || "";
+    btn.onclick = label[2] || null;
+  });
+  return row;
+}
+
 async function about(root) {
   root.append(h("div.card", h("h3", `Phosphor ${store.state.version}`),
     h("p", "Every classic, every screen, zero setup."),
+    updateRow(),
     h("div.list",
       credit("EmulatorJS", "The in-browser emulator runtime. GPL-3.0.", "https://emulatorjs.org"),
       credit("libretro cores", "FCEUmm, Snes9x, Mupen64Plus-Next, mGBA, Genesis Plus GX, PCSX ReARMed, PPSSPP, FinalBurn Neo and the rest. Each under its own open-source license.", "https://www.libretro.com"),

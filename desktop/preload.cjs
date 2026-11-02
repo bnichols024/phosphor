@@ -6,6 +6,19 @@ contextBridge.exposeInMainWorld("phosphorDesktop", {
   library: () => ipcRenderer.invoke("phosphor:library"),
   openFolder: (sub) => ipcRenderer.invoke("phosphor:open-folder", sub),
   chooseLibrary: () => ipcRenderer.invoke("phosphor:choose-library"),
+  // Phosphor's own updates: state, check, start (download, or open the release page), restart.
+  update: {
+    state: () => ipcRenderer.invoke("phosphor:update-state"),
+    check: () => ipcRenderer.invoke("phosphor:update-check"),
+    start: () => ipcRenderer.invoke("phosphor:update-start"),
+    restart: () => ipcRenderer.invoke("phosphor:update-restart"),
+    openPage: () => ipcRenderer.invoke("phosphor:update-page"),
+    onChange: (cb) => {
+      const fn = (_e, s) => cb(s);
+      ipcRenderer.on("phosphor:update", fn);
+      return () => ipcRenderer.off("phosphor:update", fn);
+    },
+  },
 });
 
 contextBridge.exposeInMainWorld("phosphorSetup", {

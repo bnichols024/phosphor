@@ -9,6 +9,7 @@ import path from "node:path";
 import fs from "node:fs";
 import net from "node:net";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { createUpdater } from "./updater.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "..");
@@ -170,6 +171,14 @@ ipcMain.handle("phosphor:choose-library", async () => {
   return r.filePaths[0];
 });
 
+// Phosphor's own updates (desktop/updater.mjs); the page shows them (web/js/app.js).
+const updater = createUpdater({ send: (s) => win?.webContents.send("phosphor:update", s), log: logLine });
+ipcMain.handle("phosphor:update-state", () => updater.state);
+ipcMain.handle("phosphor:update-check", () => updater.check());
+ipcMain.handle("phosphor:update-start", () => updater.start());
+ipcMain.handle("phosphor:update-restart", () => updater.restart());
+ipcMain.handle("phosphor:update-page", () => updater.openPage());
+
 app.on("second-instance", () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 app.whenReady().then(() => {
   if (process.platform === "darwin") {
@@ -179,6 +188,7 @@ app.whenReady().then(() => {
   }
   createWindow();
   launch();
+  updater.schedule();
 });
 app.on("window-all-closed", async () => {
   await server?.close().catch(() => {});

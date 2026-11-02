@@ -1,6 +1,6 @@
 {
   "name": "phosphor",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "description": "Every classic, every screen, zero setup. A retro gaming app with every emulator built in.",
   "type": "module",
   "private": true,
@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "7zip-bin": "^5.2.0",
+    "electron-updater": "^6.8.11",
     "ws": "^8.18.3"
   },
   "devDependencies": {
@@ -102,7 +103,7 @@
         "provider": "github",
         "owner": "bnichols024",
         "repo": "phosphor",
-        "releaseType": "release"
+        "releaseType": "draft"
       }
     ]
   }

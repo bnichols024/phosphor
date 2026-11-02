@@ -6,6 +6,7 @@ import { LOGO } from "./icons.js";
 import { initNav, setNavHandlers, focusables, focusEl, onActivity } from "./nav.js";
 import { sound } from "./sound.js";
 import { freeGamesSheet } from "./freegames.js";
+import { initUpdates } from "./update.js";
 
 const ROUTES = [
   { re: /^\/$/, view: () => import("./views/home.js"), nav: "home" },
@@ -499,6 +500,7 @@ async function boot() {
   await render();
   whoIsPlaying();
   initScreensaver();
+  initUpdates();
   window.addEventListener("pageshow", (e) => { if (e.persisted) { document.body.style.opacity = "1"; render(); } });
 }
 
