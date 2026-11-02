@@ -144,7 +144,11 @@ export async function start(opts = {}) {
   const server = http.createServer(handler);
   attachPads(server, { log });
 
-  await new Promise((resolve) => server.listen(port, opts.host || "0.0.0.0", resolve));
+  await new Promise((resolve, reject) => {
+    // A port that's taken must be a normal error the caller can handle, not a crash.
+    server.once("error", (e) => { db.close(); reject(e.code === "EADDRINUSE" ? new Error(`Port ${port} is already in use by another program.`) : e); });
+    server.listen(port, opts.host || "0.0.0.0", resolve);
+  });
   const actualPort = server.address().port;
   log.info(`${APP_NAME} ${pkg.version} on http://localhost:${actualPort} — library at ${root}`);
 

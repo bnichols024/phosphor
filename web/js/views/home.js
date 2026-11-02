@@ -106,6 +106,6 @@ function welcome() {
       h("a.btn.big", { href: "/library", "data-nav": "" }, ic("library"), "See all consoles")),
     h("div.steps",
       h("div.step", h("b", h("i", "1"), "Drop them anywhere"), h("p", "Drag game files or whole folders onto this window. Zipped is fine.")),
-      h("div.step", h("b", h("i", "2"), "Or copy to the server"), h("p", "Put files in ", h("code", root.dropFolder), " and they're picked up automatically.")),
+      h("div.step", h("b", h("i", "2"), window.phosphorDesktop ? "Or copy them into the folder" : "Or copy to the server"), h("p", "Put files in ", h("code", root.dropFolder), " and they're picked up automatically.")),
       h("div.step", h("b", h("i", "3"), "Play anywhere"), h("p", "TV, laptop or phone. Your saves follow you, and your phone can be the controller."))));
 }
