@@ -8,7 +8,9 @@ export function tmpdir(prefix = "phosphor-test-") {
 }
 
 // Minimal stored (uncompressed) zip writer for fixtures.
-export function makeZip(entries) {
+// `zip64: true` writes the central directory the way archives over 4 GB do (0xffffffff markers,
+// 64-bit values in extra fields, ZIP64 end records).
+export function makeZip(entries, { zip64 = false } = {}) {
   const locals = [];
   const central = [];
   let offset = 0;
@@ -19,20 +21,48 @@ export function makeZip(entries) {
     const lh = Buffer.alloc(30);
     lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(20, 4); lh.writeUInt16LE(0, 8);
     lh.writeUInt32LE(crc, 14); lh.writeUInt32LE(buf.length, 18); lh.writeUInt32LE(buf.length, 22); lh.writeUInt16LE(nameBuf.length, 26);
-    locals.push(lh, nameBuf, buf);
+    let localExtra = Buffer.alloc(0);
+    if (zip64) {
+      localExtra = Buffer.alloc(20);
+      localExtra.writeUInt16LE(1, 0); localExtra.writeUInt16LE(16, 2);
+      localExtra.writeBigUInt64LE(BigInt(buf.length), 4); localExtra.writeBigUInt64LE(BigInt(buf.length), 12);
+      lh.writeUInt16LE(45, 4); lh.writeUInt32LE(0xffffffff, 18); lh.writeUInt32LE(0xffffffff, 22); lh.writeUInt16LE(localExtra.length, 28);
+    }
+    locals.push(lh, nameBuf, localExtra, buf);
     const ch = Buffer.alloc(46);
     ch.writeUInt32LE(0x02014b50, 0); ch.writeUInt16LE(20, 4); ch.writeUInt16LE(20, 6); ch.writeUInt16LE(0, 10);
     ch.writeUInt32LE(crc, 16); ch.writeUInt32LE(buf.length, 20); ch.writeUInt32LE(buf.length, 24); ch.writeUInt16LE(nameBuf.length, 28);
     ch.writeUInt32LE(offset, 42);
-    central.push(ch, nameBuf);
-    offset += 30 + nameBuf.length + buf.length;
+    if (zip64) {
+      const extra = Buffer.alloc(28);
+      extra.writeUInt16LE(1, 0); extra.writeUInt16LE(24, 2);
+      extra.writeBigUInt64LE(BigInt(buf.length), 4); extra.writeBigUInt64LE(BigInt(buf.length), 12); extra.writeBigUInt64LE(BigInt(offset), 20);
+      ch.writeUInt16LE(45, 4); ch.writeUInt16LE(45, 6);
+      ch.writeUInt32LE(0xffffffff, 20); ch.writeUInt32LE(0xffffffff, 24); ch.writeUInt32LE(0xffffffff, 42);
+      ch.writeUInt16LE(extra.length, 30);
+      central.push(ch, nameBuf, extra);
+    } else central.push(ch, nameBuf);
+    offset += 30 + nameBuf.length + localExtra.length + buf.length;
   }
   const cd = Buffer.concat(central);
+  const n = Object.keys(entries).length;
   const eocd = Buffer.alloc(22);
   eocd.writeUInt32LE(0x06054b50, 0);
-  eocd.writeUInt16LE(Object.keys(entries).length, 8); eocd.writeUInt16LE(Object.keys(entries).length, 10);
-  eocd.writeUInt32LE(cd.length, 12); eocd.writeUInt32LE(offset, 16);
-  return Buffer.concat([...locals, cd, eocd]);
+  if (!zip64) {
+    eocd.writeUInt16LE(n, 8); eocd.writeUInt16LE(n, 10);
+    eocd.writeUInt32LE(cd.length, 12); eocd.writeUInt32LE(offset, 16);
+    return Buffer.concat([...locals, cd, eocd]);
+  }
+  // As in a real archive over 4 GB: only the directory's offset overflows.
+  eocd.writeUInt16LE(n, 8); eocd.writeUInt16LE(n, 10);
+  eocd.writeUInt32LE(cd.length, 12); eocd.writeUInt32LE(0xffffffff, 16);
+  const rec = Buffer.alloc(56);
+  rec.writeUInt32LE(0x06064b50, 0); rec.writeBigUInt64LE(44n, 4); rec.writeUInt16LE(45, 12); rec.writeUInt16LE(45, 14);
+  rec.writeBigUInt64LE(BigInt(n), 24); rec.writeBigUInt64LE(BigInt(n), 32);
+  rec.writeBigUInt64LE(BigInt(cd.length), 40); rec.writeBigUInt64LE(BigInt(offset), 48);
+  const loc = Buffer.alloc(20);
+  loc.writeUInt32LE(0x07064b50, 0); loc.writeBigUInt64LE(BigInt(offset + cd.length), 8); loc.writeUInt32LE(1, 16);
+  return Buffer.concat([...locals, cd, rec, loc, eocd]);
 }
 
 // Minimal ustar writer for fixtures.

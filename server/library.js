@@ -10,6 +10,11 @@ import { SYSTEMS, BY_ID, systemForFolder, EXT_INDEX, AMBIGUOUS_EXTS } from "./sy
 import { identify, referencedFiles } from "./identify.js";
 import { parseName, sortTitle } from "./gamedb.js";
 import { readSfo, detectSystemFiles, SYSTEM_FILE_NAMES } from "./native/files.js";
+import { extract } from "./native/manager.js";
+import { listZip } from "./lib/zip.js";
+
+// The file a folder game starts from: PS3/PS4/Vita EBOOT.BIN, a Wii U .rpx, Switch exefs/main.
+const FOLDER_GAME_FILE = /(^|[\\/])eboot\.bin$|\.rpx$|[\\/]exefs[\\/]main$|^exefs[\\/]main$/i;
 
 export const DROP_FOLDER = "Drop Games Here";
 // Bump when identification improves: the next startup re-checks every file once.
@@ -268,6 +273,7 @@ export class Library extends EventEmitter {
   // Moves every recognisable game (with its companion files) and BIOS file out of the drop folder
   // into place. Leaves anything unrecognised where it is and reports it.
   async sortDrop() {
+    if (await this._unpackFolderZips()) this.log.info?.("drop: unpacked zipped game folders");
     const all = await walk(this.dropDir).catch(() => []);
     if (!all.length) { this.status.unknown = []; return { moved: 0, unknown: [] }; }
     const biosMd5 = this._biosByMd5();
@@ -339,6 +345,38 @@ export class Library extends EventEmitter {
     return { moved, unknown };
   }
 
+  // Desktop consoles run games from unpacked folders (Switch/Switch 2 exefs, PS3/PS4/Vita EBOOT.BIN,
+  // Wii U .rpx) and can't read them from inside a zip, so a zip holding one is unpacked here and the
+  // zip removed. Unpacking goes into a hidden folder first, so a scan never sees half a game.
+  async _unpackFolderZips() {
+    let unpacked = 0;
+    for (const f of await walk(this.dropDir).catch(() => [])) {
+      if (path.extname(f).toLowerCase() !== ".zip") continue;
+      const entries = await listZip(f);
+      if (!entries?.some((e) => FOLDER_GAME_FILE.test(e.name.replace(/\\/g, "/")))) continue;
+      const tmp = path.join(path.dirname(f), `.unpack-${crypto.randomBytes(4).toString("hex")}`);
+      this._emit({ phase: "sorting", current: `Unpacking ${path.basename(f)}…` });
+      try {
+        await fsp.mkdir(tmp, { recursive: true });
+        await extract(f, tmp);
+        const top = (await fsp.readdir(tmp)).filter((n) => !n.startsWith(".") && n !== "__MACOSX");
+        // Game files right at the top of the zip: the zip's name becomes the folder's name.
+        if (top.some((n) => /^(exefs|romfs|usrdir|code|content|meta|sce_sys)$/i.test(n) || /^eboot\.bin$/i.test(n))) {
+          await fsp.rename(tmp, await uniqueTarget(path.dirname(f), path.basename(f, path.extname(f))));
+        } else {
+          for (const n of top) await fsp.rename(path.join(tmp, n), await uniqueTarget(path.dirname(f), n));
+          await fsp.rm(tmp, { recursive: true, force: true });
+        }
+        await fsp.rm(f, { force: true });
+        unpacked++;
+      } catch (e) {
+        this.log.warn?.(`drop: couldn't unpack ${path.basename(f)}: ${e.message}`);
+        await fsp.rm(tmp, { recursive: true, force: true }).catch(() => {});
+      }
+    }
+    return unpacked;
+  }
+
   // ---- watching ----
   watch() {
     const trigger = debounce(() => this.scan({ reason: "files changed" }), 2500);
@@ -385,7 +423,7 @@ export async function groupGames(files) {
   // Folder games (PS3, PS4, Vita, Wii U): the whole folder is one game, started from its main file.
   const folders = new Map();
   for (const f of files) {
-    if (!/(^|[\\/])eboot\.bin$|\.rpx$|[\\/]exefs[\\/]main$/i.test(f)) continue;
+    if (!FOLDER_GAME_FILE.test(f)) continue;
     const g = await folderGame(f).catch(() => null);
     if (g && !folders.has(g.root)) folders.set(g.root, g);
   }

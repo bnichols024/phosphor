@@ -72,6 +72,32 @@ test("a big upload into a new folder arrives byte for byte, and the result count
   await app.library.scan({ reason: "test" });
 });
 
+test("a zipped game folder (Switch 2, ZIP64) is unpacked and sorted as a game", async () => {
+  const npdm = (id) => { const b = Buffer.alloc(0x200); b.write("META", 0); b.writeUInt32LE(0x80, 0x70); b.write("ACI0", 0x80); b.writeBigUInt64LE(id, 0x90); return b; };
+  // Folder inside the zip, as most dumps are zipped.
+  const wrapped = makeZip({
+    "Mario Kart World/exefs/main": "code", "Mario Kart World/exefs/main.npdm": npdm(0x0400c3f00006e000n),
+    "Mario Kart World/romfs/data.bin": Buffer.alloc(4096, 1),
+  }, { zip64: true });
+  // Game files at the top of the zip: the zip's name names the game.
+  const flat = makeZip({ "exefs/main": "code", "exefs/main.npdm": npdm(0x0400aaaa00001000n), "romfs/x.bin": "y" });
+  const since = Date.now();
+  for (const [name, body] of [["Mario Kart World.zip", wrapped], ["Donkey Kong Bananza.zip", flat]]) {
+    assert.equal((await fetch(`${base}/api/upload?path=${encodeURIComponent(name)}`, { method: "PUT", body, headers: H })).status, 201);
+  }
+  const res = (await j(`/api/library/scan?wait=1&since=${since}`, { method: "POST" })).body;
+  assert.equal(res.added, 2);
+  assert.deepEqual(res.unknown, []);
+  const ns2 = path.join(root, "ROMs", "Switch 2");
+  assert.equal(fs.readFileSync(path.join(ns2, "Mario Kart World", "romfs", "data.bin")).length, 4096);
+  assert.ok(fs.existsSync(path.join(ns2, "Donkey Kong Bananza", "exefs", "main")));
+  assert.ok(!fs.existsSync(path.join(root, "Drop Games Here", "Mario Kart World.zip")), "the zip is gone once unpacked");
+  const games = (await j("/api/games?system=switch2")).body;
+  assert.deepEqual(games.map((g) => g.title).sort(), ["Donkey Kong Bananza", "Mario Kart World"]);
+  fs.rmSync(ns2, { recursive: true, force: true });
+  await app.library.scan({ reason: "test" });
+});
+
 test("renamed files keep their play history", async () => {
   const g = (await j("/api/games?system=nes")).body[0];
   await j(`/api/games/${g.id}/favorite`, { method: "POST", body: JSON.stringify({ favorite: true }), headers: { "content-type": "application/json" } });
