@@ -35,12 +35,17 @@ export const NATIVE = {
     },
     exe: { win32: /^flycast\.exe$/i, darwin: /^Flycast\.app$/i, linux: /\.AppImage$/i },
     // Started with a game, Flycast's "Exit" quits back to Phosphor. VMU saves go to the player's folder.
-    launch({ game, saveDir, dataDir }) {
+    graphics: ["scale", "widescreen", "fps", "vsync"],
+    configure({ dataDir }) { return { args: [], env: { XDG_CONFIG_HOME: path.join(dataDir, "config"), XDG_DATA_HOME: path.join(dataDir, "data") } }; },
+    launch({ game, saveDir, dataDir, graphics }) {
+      const yn = (v) => (v ? "yes" : "no");
       const settings = [
         `window:fullscreen=yes`,
         `config:Dreamcast.VMUPath=${fcVal(saveDir)}`,
         `config:Dreamcast.SavePath=${fcVal(saveDir)}`,
         `config:FetchBoxart=no`, `config:UploadCrashLogs=no`, `config:DiscordPresence=no`,
+        // Phosphor's graphics settings (Settings › Graphics): 480 lines per step of scale.
+        ...(graphics ? [`config:rend.Resolution=${480 * graphics.scale}`, `config:rend.WideScreen=${yn(graphics.widescreen)}`, `config:rend.ShowFPS=${yn(graphics.fps)}`, `config:rend.vsync=${yn(graphics.vsync)}`] : []),
       ];
       return {
         args: [...settings.flatMap((s) => ["-config", s]), game],
@@ -60,9 +65,19 @@ export const NATIVE = {
     },
     exe: { win32: /^Dolphin\.exe$/i, darwin: /^Dolphin\.app$/i, linux: /\.AppImage$/i },
     // -b exits when the game stops; -u keeps every setting and save inside the player's own folder.
-    launch({ game, saveDir, platform }) {
+    graphics: ["scale", "widescreen", "fps", "vsync"],
+    configure({ saveDir, platform }) {
       writeDolphinControllers(saveDir, platform);
+      return { args: ["-u", saveDir, "-C", "Dolphin.Analytics.PermissionAsked=True", "-C", "Dolphin.AutoUpdate.UpdateTrack="], env: {} };
+    },
+    launch({ game, saveDir, platform, graphics }) {
+      writeDolphinControllers(saveDir, platform);
+      const tf = (v) => (v ? "True" : "False");
       const cfg = {
+        ...(graphics ? {
+          "GFX.Settings.InternalResolution": String(graphics.scale), "GFX.Settings.wideScreenHack": tf(graphics.widescreen),
+          "GFX.Settings.ShowFPS": tf(graphics.fps), "GFX.Hardware.VSync": tf(graphics.vsync),
+        } : {}),
         "Dolphin.Display.Fullscreen": "True",
         "Dolphin.Interface.ConfirmStop": "False",
         "Dolphin.Analytics.PermissionAsked": "True",
@@ -84,7 +99,9 @@ export const NATIVE = {
     exe: { win32: /^pcsx2-qt\.exe$/i, darwin: /^PCSX2.*\.app$/i, linux: /\.AppImage$/i },
     // Its own data folder per player: the BIOS comes from Phosphor's BIOS folder, memory cards go to
     // the player's saves, and the first-run wizard is skipped.
-    launch({ game, saveDir, dataDir, sysFiles }) {
+    graphics: ["scale", "widescreen", "fps", "vsync"],
+    configure(ctx) { NATIVE.pcsx2.launch({ ...ctx, game: null }); return { args: ["-datapath", ctx.dataDir], env: {} }; },
+    launch({ game, saveDir, dataDir, sysFiles, graphics }) {
       const bios = sysFiles?.bios;
       const ini = path.join(dataDir, "PCSX2", "inis", "PCSX2.ini"); // -datapath adds "PCSX2"
       // First time: a starter config (PCSX2 throws away a settings file without SettingsVersion and
@@ -95,6 +112,10 @@ export const NATIVE = {
         Folders: { MemoryCards: saveDir, ...(bios ? { Bios: path.dirname(bios) } : {}) },
         ...(bios ? { Filenames: { BIOS: path.basename(bios) } } : {}),
         AutoUpdater: { CheckAtStartup: "false" },
+        ...(graphics ? {
+          "EmuCore/GS": { upscale_multiplier: String(graphics.scale), OsdShowFPS: String(graphics.fps), VsyncEnable: graphics.vsync ? "1" : "0" },
+          EmuCore: { EnableWideScreenPatches: String(graphics.widescreen) },
+        } : {}),
       });
       return { args: ["-batch", "-nogui", "-fullscreen", "-datapath", dataDir, "--", game], env: {} };
     },
@@ -115,6 +136,7 @@ export const NATIVE = {
       const marker = doneMarker(dataDir, "ps3-firmware", pup);
       return fs.existsSync(marker) ? [] : [{ args: ["--headless", "--installfw", pup], marker, env: xdg(dataDir), message: "Installing the PS3 system software (one time)…" }];
     },
+    configure({ dataDir }) { return { args: [], env: xdg(dataDir) }; },
     launch({ game, dataDir }) { return { args: ["--no-gui", "--fullscreen", game], env: xdg(dataDir) }; },
   },
 
@@ -147,6 +169,7 @@ export const NATIVE = {
       }
       return steps;
     },
+    configure({ dataDir }) { return { args: [], env: xdg(dataDir) }; },
     // A game is installed the first time it's played (Vita3K installs, then starts it), and after
     // that started by its title ID.
     async launch({ game, dataDir }) {
@@ -169,6 +192,7 @@ export const NATIVE = {
     },
     exe: { win32: /^Cemu\.exe$/i, darwin: /^Cemu\.app$/i, linux: /\.AppImage$/i },
     // keys.txt (only for encrypted dumps) goes where Cemu looks; saves live in the player's mlc folder.
+    configure(ctx) { const r = NATIVE.cemu.launch({ ...ctx, game: "" }); return { args: ["-m", path.join(ctx.saveDir, "mlc01")], env: r.env }; },
     launch({ game, saveDir, dataDir, platform, sysFiles }) {
       const env = platform === "linux" ? xdg(dataDir) : {};
       copyIfChanged(sysFiles?.keys, path.join(appDataDir(platform, "Cemu", { xdg: env.XDG_DATA_HOME }), "keys.txt"));
@@ -190,6 +214,7 @@ export const NATIVE = {
       linux: { kind: "gitea", api: "https://git.eden-emu.dev/api/v1", repo: "eden-emu/eden", asset: /^Eden-Linux-v[\d.]+-amd64-gcc-standard\.AppImage$/i },
     },
     exe: { win32: /^eden\.exe$/i, darwin: /^Eden\.app$/i, linux: /\.AppImage$/i },
+    configure(ctx) { return { args: [], env: NATIVE.eden.launch({ ...ctx, game: "" }).env }; },
     // The player's own console keys go where Eden reads them.
     launch({ game, dataDir, platform, sysFiles }) {
       const env = platform === "linux" ? xdg(dataDir) : {};
@@ -212,6 +237,7 @@ export const NATIVE = {
     // Eglantine shares Eden's "eden" data folder. To keep them apart on Windows it runs in portable
     // mode (a "user" folder next to the program), linked to the player's own data folder. On Linux
     // the XDG folders already point at the player's folder.
+    configure(ctx) { return { args: [], env: NATIVE.eglantine.launch({ ...ctx, game: "" }).env }; },
     launch({ game, dataDir, platform, sysFiles, program }) {
       const env = platform === "linux" ? xdg(dataDir) : {};
       let base = appDataDir(platform, "eden", { xdg: env.XDG_DATA_HOME });
@@ -240,6 +266,7 @@ export const NATIVE = {
       linux: { kind: "github", repo: "azahar-emu/azahar", asset: /^azahar\.AppImage$/i },
     },
     exe: { win32: /^azahar(-qt)?\.exe$/i, darwin: /^Azahar\.app$/i, linux: /\.AppImage$/i },
+    configure({ dataDir, platform }) { return { args: [], env: platform === "linux" ? xdg(dataDir) : {} }; },
     launch({ game, dataDir, platform }) { return { args: ["-f", game], env: platform === "linux" ? xdg(dataDir) : {} }; },
   },
 
@@ -252,7 +279,9 @@ export const NATIVE = {
     },
     exe: { win32: /^xemu\.exe$/i, darwin: /^xemu\.app$/i, linux: /\.AppImage$/i },
     // The player's BIOS files, plus a blank copyright-free hard drive per player (saves live on it).
-    async launch({ game, saveDir, dataDir, platform, sysFiles }) {
+    graphics: ["scale", "vsync"],
+    async configure(ctx) { const r = await NATIVE.xemu.launch({ ...ctx, game: "" }); return { args: r.args.slice(0, 2), env: r.env }; },
+    async launch({ game, saveDir, dataDir, platform, sysFiles, graphics }) {
       const hdd = path.join(saveDir, "xbox_hdd.qcow2");
       if (!fs.existsSync(hdd)) {
         const zip = path.join(BIOS_DIR, "xbox_hdd.qcow2.zip");
@@ -265,7 +294,8 @@ export const NATIVE = {
       fs.mkdirSync(dataDir, { recursive: true });
       fs.writeFileSync(toml, [
         "[general]", "show_welcome = false", "skip_boot_anim = true", "",
-        "[display.window]", "fullscreen_on_startup = true", "",
+        "[display.window]", "fullscreen_on_startup = true", ...(graphics ? [`vsync = ${!!graphics.vsync}`] : []), "",
+        ...(graphics ? ["[display.quality]", `surface_scale = ${graphics.scale}`, ""] : []),
         "[sys.files]", `bootrom_path = ${q(sysFiles?.mcpx || "")}`, `flashrom_path = ${q(sysFiles?.flash || "")}`,
         `hdd_path = ${q(hdd)}`, `eeprom_path = ${q(path.join(saveDir, "eeprom.bin"))}`, `dvd_path = ${q(game)}`, "",
       ].join("\n"));

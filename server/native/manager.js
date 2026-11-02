@@ -54,7 +54,8 @@ export class NativeEmulators {
     return NATIVE_IDS.filter((id) => this.supported(id)).map((id) => {
       const a = this.active(id);
       const prev = this.installs(id).find((i) => a && i.version !== a.version);
-      return { id, name: NATIVE[id].name, systems: NATIVE[id].systems, home: NATIVE[id].home, version: a?.version || null, source: a?.source || null, installedAt: a?.installedAt || null, previous: prev?.version || null };
+      return { id, name: NATIVE[id].name, systems: NATIVE[id].systems, home: NATIVE[id].home, version: a?.version || null, source: a?.source || null, installedAt: a?.installedAt || null, previous: prev?.version || null,
+        configurable: !!NATIVE[id].configure, graphics: NATIVE[id].graphics || [] };
     });
   }
 

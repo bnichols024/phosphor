@@ -462,6 +462,7 @@ export function buildApi(ctx) {
     try {
       out = await runner.start({
         emulatorId: sys.native, gameId: g.id, profileId: profile.id, game, dataDir, sysFiles: bios[sys.id]?.paths || null,
+        graphics: desktopGraphics(profile),
         onStep: (message) => bus.emit("native", { running: false, preparing: true, gameId: g.id, message }),
         saveDir: path.join(library.savesDir, safeProfile, emu.saveFolder),
       });
@@ -472,6 +473,27 @@ export function buildApi(ctx) {
     bus.emit("played", { id: g.id, profile: profile.id });
     bus.emit("native", runner.status());
     json(res, 200, out);
+  });
+  // Opens a desktop emulator's own settings window (controllers, graphics...) with this player's
+  // settings folder, so whatever is changed there applies when Phosphor starts their games.
+  r.post("/api/native/:emu/configure", async (req, res, { emu: emuId }) => {
+    const profile = profileOf(req);
+    const emu = NATIVE[emuId];
+    if (!emu) throw new HttpError(404, "Unknown emulator.");
+    if (!runner) throw new HttpError(409, "Only in the desktop app.");
+    if (!isLocal(req)) throw new HttpError(403, "Open emulator settings on the computer running Phosphor.");
+    const sysId = emu.systems[0];
+    const bios = await library.biosStatus();
+    const safeProfile = profile.name.replace(/[^\w\- ]+/g, "").trim() || `Player ${profile.id}`;
+    try {
+      const out = await runner.start({
+        emulatorId: emuId, configure: true, profileId: profile.id, game: null, sysFiles: bios[sysId]?.paths || null, graphics: desktopGraphics(profile),
+        saveDir: path.join(library.savesDir, safeProfile, emu.saveFolder),
+        dataDir: path.join(paths.internal, "native-data", emuId, String(profile.id)),
+      });
+      bus.emit("native", runner.status());
+      json(res, 200, out);
+    } catch (e) { throw new HttpError(e.status || 500, e.message); }
   });
   r.get("/api/native", (req, res) => json(res, 200, { desktop: !!runner, status: runner?.status() || null, emulators: native?.summary() || [] }));
   r.post("/api/native/stop", (req, res) => {
@@ -826,6 +848,14 @@ export function buildApi(ctx) {
 
   return r;
 }
+
+// Settings › Graphics for desktop emulators (per player). null = leave each emulator's own settings.
+export const GRAPHICS_DEFAULTS = { scale: 2, widescreen: false, fps: false, vsync: true };
+const desktopGraphics = (profile) => {
+  const g = JSON.parse(profile.settings || "{}").graphics;
+  if (g?.mode === "emulator") return null;
+  return { ...GRAPHICS_DEFAULTS, ...(g || {}), scale: Math.max(1, Math.min(6, Number(g?.scale) || GRAPHICS_DEFAULTS.scale)) };
+};
 
 const isLocal = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress);
 

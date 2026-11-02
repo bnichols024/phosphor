@@ -2,6 +2,7 @@
 // resumes exactly where you left off, and adds Phosphor's own menu, save slots, display filters,
 // play-time tracking and phone controllers.
 import { icon } from "./icons.js";
+import { layoutFor } from "./controls.js";
 import qrcode from "/vendor/qrcode.mjs";
 
 const gameId = Number(location.pathname.split("/")[2]);
@@ -117,6 +118,8 @@ async function boot() {
       diskButton: false, contextMenu: false,
     },
     EJS_onGameStart: onStart,
+    // The player's button layout from Settings › Controls (per console, else for all consoles).
+    EJS_defaultControls: layoutFor(prefs.controls || {}, L.system.id),
   });
   watchEmulatorText();
   const s = document.createElement("script");
@@ -710,7 +713,7 @@ async function showPanel(name, focus = false) {
         list.length ? el("button", { class: "mi danger", style: "width:auto", onclick: () => { saveCheats([]); applyCheats(); showPanel("cheats", true); } }, ic("trash"), "Remove all") : null));
   } else if (name === "controls") {
     panel.replaceChildren(back, el("h2", {}, "Controls"),
-      el("p", { class: "sub" }, "Controllers work as soon as you plug them in. You can remap any button here."),
+      el("p", { class: "sub" }, "Controllers work as soon as you plug them in. Change your buttons for every game in Settings › Controls, or just for this game here."),
       el("button", { class: "mi", style: "width:auto", onclick: () => { closeMenu(); setTimeout(() => { try { emu.controlMenu.style.display = ""; } catch { /* ignore */ } }, 50); } }, ic("sliders"), "Remap buttons"),
       el("div", { style: "height:18px" }), helpGrid());
   }

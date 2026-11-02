@@ -2,9 +2,12 @@ import { api } from "../api.js";
 import { store, go, refreshState } from "../store.js";
 import { h, ic, toast, toastError, sheet, confirmBox, promptBox, timeAgo, plural } from "../ui.js";
 import { sound } from "../sound.js";
+import { ACTIONS, DEFAULTS, POSITIONAL, PAD_BUTTONS, padName, keyName, layoutFor } from "../controls.js";
 
 const SECTIONS = [
   ["emulators", "Emulators", "cpu"],
+  ["controls", "Controls", "gamepad"],
+  ["graphics", "Graphics", "monitor"],
   ["library", "Library & BIOS", "folder"],
   ["players", "Players", "users"],
   ["accounts", "Accounts", "star"],
@@ -22,7 +25,7 @@ export default async function settings({ params }) {
     h("div.settings",
       h("nav", SECTIONS.map(([id, label, icn]) => h("button", { "data-nav": "", class: id === section ? "on" : "", onclick: () => go(`/settings/${id}`) }, ic(icn), label))),
       content));
-  const render = { emulators, library, players, accounts, general, about }[section];
+  const render = { emulators, controls, graphics, library, players, accounts, general, about }[section];
   const cleanup = await render(content);
   return { el, title: "Settings", destroy: cleanup };
 }
@@ -171,6 +174,187 @@ async function emulators(root) {
 }
 
 const coreName = (c) => store.state.emulators?.coreNames?.[c] || c;
+
+// ---------------- Controls ----------------
+const PAD_LABELS = ["A", "B", "X", "Y", "LB", "RB", "LT", "RT", "Back", "Start", "LS", "RS", "↑", "↓", "←", "→", "Home"];
+const saveProfileSettings = async (patch) => {
+  const p = await api.patch(`/api/profiles/${store.profile.id}`, { settings: patch });
+  store.profile = p;
+  const i = store.profiles.findIndex((x) => x.id === p.id);
+  if (i >= 0) store.profiles[i] = p;
+  return p;
+};
+
+async function controls(root) {
+  // Live controller test: what's plugged in and which buttons it's pressing right now.
+  const padsHost = h("div.pads");
+  const drawPads = () => {
+    const pads = [...(navigator.getGamepads?.() || [])].filter(Boolean);
+    if (!pads.length) { if (!padsHost.querySelector(".none")) padsHost.replaceChildren(h("div.none", ic("gamepad"), h("div", h("b", "No controller found yet"), h("div", "Plug one in (or pair it over Bluetooth), then press any button on it."))));; return; }
+    padsHost.replaceChildren(...pads.map((p) => h("div.pad-test",
+      h("div.pad-name", ic("gamepad"), h("b", p.id.replace(/\s*\(.*$/, "") || "Controller"), h("span.chip", p.mapping === "standard" ? "Ready" : "Basic support")),
+      h("div.pad-buttons", PAD_LABELS.map((l, i) => h("span", { class: p.buttons[i]?.pressed || (p.buttons[i]?.value || 0) > 0.5 ? "on" : "" }, l))),
+      h("div.pad-sticks", [0, 2].map((a) => h("div.stick", h("i", { style: { left: `${50 + (p.axes[a] || 0) * 40}%`, top: `${50 + (p.axes[a + 1] || 0) * 40}%` } })))))));
+  };
+  drawPads();
+  const padTimer = setInterval(drawPads, 80);
+
+  // Button layout for the in-browser games, for all consoles or one.
+  let ctl = JSON.parse(JSON.stringify(store.profile.settings?.controls || {}));
+  let scope = "all";
+  const consoles = store.systemList.filter((s) => !s.native);
+  const scopeSel = h("select", { onchange: (e) => { scope = e.target.value; drawLayout(); } },
+    h("option", { value: "all" }, "All consoles"), consoles.map((s) => h("option", { value: s.id }, s.name)));
+  const layoutHost = h("div");
+  let capture = null; // { kind: "key" | "pad", idx, cell }
+  const save = async () => { try { await saveProfileSettings({ controls: ctl }); } catch (e) { toastError(e); } };
+  const drawLayout = () => {
+    const sc = (ctl[scope] ||= {});
+    const eff = layoutFor(ctl, scope === "all" ? "__none__" : scope)[0];
+    const positional = h("div.setting",
+      h("div.grow", h("div.t", "Match button positions to the original controller"),
+        h("div.d", "On: your bottom button is the console's bottom button (B on Nintendo pads). Off: buttons match by letter (your A is the console's A).")),
+      toggle(!!sc.positional, (v) => { sc.positional = v; save(); drawLayout(); }));
+    const rows = ACTIONS.map(([idx, label]) => {
+      const own = sc.map?.[idx];
+      const cell = (kind) => h("button.map-cell", { "data-nav": "", class: own && (kind === "key" ? "value" in own : "value2" in own) ? "custom" : "",
+        onclick: (e) => startCapture(kind, idx, e.currentTarget) }, kind === "key" ? keyName(eff[idx]?.value) : padName(eff[idx]?.value2));
+      return h("tr", h("td", label), h("td", cell("pad")), h("td", cell("key")));
+    });
+    layoutHost.replaceChildren(positional,
+      h("table.map-table", h("thead", h("tr", h("th", "Button"), h("th", "Controller"), h("th", "Keyboard"))), h("tbody", rows)),
+      h("div", { style: { display: "flex", gap: "10px", marginTop: "14px", flexWrap: "wrap" } },
+        h("button.btn.ghost", { "data-nav": "", onclick: async () => { delete ctl[scope]; await save(); drawLayout(); toast({ title: scope === "all" ? "Layout reset" : `${store.systems[scope]?.short} uses your general layout again`, icon: "history" }); } }, ic("history"), scope === "all" ? "Reset to defaults" : "Use the general layout")));
+  };
+  const finish = (val) => {
+    if (!capture) return;
+    const { kind, idx } = capture;
+    capture = null;
+    window.removeEventListener("keydown", onKey, true);
+    if (val !== undefined) {
+      const sc = (ctl[scope] ||= {});
+      sc.map ||= {};
+      sc.map[idx] = { ...(sc.map[idx] || {}), [kind === "key" ? "value" : "value2"]: val };
+      save();
+    }
+    drawLayout();
+  };
+  const onKey = (e) => {
+    if (!capture || capture.kind !== "key") return;
+    e.preventDefault(); e.stopPropagation();
+    if (e.key === "Escape") return finish();
+    finish(e.key === "Delete" || e.key === "Backspace" ? 0 : e.keyCode);
+  };
+  const startCapture = (kind, idx, cell) => {
+    if (capture) finish();
+    capture = { kind, idx, cell, since: performance.now() };
+    cell.textContent = kind === "key" ? "Press a key… (Esc to cancel)" : "Press a button or move a stick…";
+    cell.classList.add("listening");
+    if (kind === "key") window.addEventListener("keydown", onKey, true);
+  };
+  // Controller capture: the first new button press (or a stick pushed far) after clicking.
+  let held = new Set();
+  const padCapture = setInterval(() => {
+    const pads = [...(navigator.getGamepads?.() || [])].filter(Boolean);
+    const now = new Set();
+    for (const p of pads) {
+      p.buttons.forEach((b, i) => { if (b.pressed) now.add(`b${i}`); });
+      p.axes.forEach((v, i) => { if (Math.abs(v) > 0.7) now.add(`a${i}${v > 0 ? "+" : "-"}`); });
+    }
+    if (capture?.kind === "pad" && performance.now() - capture.since > 250) {
+      for (const k of now) {
+        if (held.has(k)) continue;
+        if (k[0] === "b") { const name = PAD_BUTTONS[Number(k.slice(1))]; if (name) { finish(name); break; } }
+        else { const a = Number(k[1]); const stick = a < 2 ? "LEFT_STICK" : "RIGHT_STICK"; finish(`${stick}_${a % 2 ? "Y" : "X"}:${k.endsWith("+") ? "+1" : "-1"}`); break; }
+      }
+    }
+    held = now;
+  }, 40);
+  drawLayout();
+
+  root.append(
+    h("div.card", h("h3", "Your controllers"),
+      h("p", "Any controller works the moment it's plugged in: in Phosphor's menus, in every in-browser game, and set up for you in the desktop emulators where they allow it. Press buttons to test them."),
+      padsHost),
+    h("div.card", h("h3", "Buttons in games"),
+      h("p", "These are your buttons for every in-browser console (NES to PSP). Pick a console to give it its own layout. Click a box, then press the button or key you want."),
+      h("div.setting", h("div.grow", h("div.t", "Layout for")), h("label.field", { style: { width: "260px" } }, scopeSel)),
+      layoutHost),
+    desktopCard("controls"),
+    h("div.card", h("h3", "Shortcuts"),
+      h("div.kv",
+        h("div", h("dt", "In menus"), h("dd", "A select · B back · X favorite · Y search · LB/RB sections")),
+        h("div", h("dt", "Game menu"), h("dd", "Select + Start together, or Esc")),
+        h("div", h("dt", "Quick save / load"), h("dd", "Select + R / Select + L, or F2 / F4")),
+        h("div", h("dt", "Desktop emulators"), h("dd", "Esc (or the emulator's own menu) quits back to Phosphor")))));
+  return () => { clearInterval(padTimer); clearInterval(padCapture); window.removeEventListener("keydown", onKey, true); };
+}
+
+// Desktop emulators: what Phosphor sets up for you, and a button to open each one's own settings
+// (stored with your player, so changes apply when Phosphor starts your games).
+const AUTO = {
+  controls: {
+    flycast: "Any controller is set up automatically.", dolphin: "Xbox-style controllers are set up automatically on Windows.",
+    pcsx2: "Your first controller is set up as a DualShock 2.", azahar: "Controllers are set up automatically.",
+    eden: "Set up your controller once in Eden's settings.", eglantine: "Set up your controller once in Eglantine's settings.",
+    cemu: "Set up your controller once in Cemu's settings.", rpcs3: "Controllers are set up automatically.",
+    xemu: "Controllers are set up automatically.", vita3k: "Controllers are set up automatically.", shadps4: "Controllers are set up automatically.", xenia: "Xbox controllers work automatically.",
+  },
+};
+function desktopCard(kind) {
+  if (!store.state.desktop) {
+    return h("div.card", h("h3", "Desktop emulators"), h("p", "GameCube, Wii, PS2, Switch and the other big consoles run in the Phosphor desktop app, where their controller and graphics settings live."));
+  }
+  const list = store.state.emulators?.native || [];
+  return h("div.card", h("h3", "Desktop emulators"),
+    h("p", kind === "controls" ? "Each desktop emulator has its own controller settings. Phosphor sets up what it can; open an emulator to change anything else." : "Settings Phosphor doesn't control can be changed in each emulator's own settings window."),
+    h("div.list", list.map((n) => h("div.list-item", { style: { cursor: "default" } },
+      h("div.grow", h("div.t", `${n.name}`, h("span", { style: { color: "var(--text-3)", fontWeight: 500 } }, ` · ${n.systems.map((id) => store.systems[id]?.short || id).join(", ")}`)),
+        h("div.d", kind === "controls" ? AUTO.controls[n.id] || "" : n.graphics?.length ? `Phosphor sets: ${n.graphics.map((g) => ({ scale: "resolution", widescreen: "widescreen", fps: "FPS counter", vsync: "V-sync" })[g]).join(", ")}` : "Uses its own graphics settings")),
+      n.configurable && n.version ? h("button.btn.small", { "data-nav": "", onclick: async () => {
+        try { await api.post(`/api/native/${n.id}/configure`); toast({ title: `${n.name} is open`, text: "Change what you like, then close it to come back.", icon: "settings", timeout: 6000 }); } catch (e) { toastError(e); }
+      } }, ic("settings"), `Open ${n.name} settings`) : h("span.chip", n.version ? "No settings window" : "Not installed")))));
+}
+
+// ---------------- Graphics ----------------
+const SCALES = [[1, "Native"], [2, "2× · 720p"], [3, "3× · 1080p"], [4, "4× · 1440p"], [6, "6× · 4K"]];
+const FILTER_CHOICES = [["sharp", "Pixel perfect"], ["smooth", "Smooth"], ["crt", "CRT"], ["crt-curved", "Curved CRT"], ["lcd", "Handheld LCD"]];
+
+async function graphics(root) {
+  const g = { scale: 2, widescreen: false, fps: false, vsync: true, ...(store.profile.settings?.graphics || {}) };
+  const save = async () => { try { await saveProfileSettings({ graphics: g }); } catch (e) { toastError(e); } };
+  const managed = g.mode !== "emulator";
+  const scaleBtns = h("div.segmented", SCALES.map(([v, l]) => h("button", { "data-nav": "", class: g.scale === v ? "on" : "", onclick: (e) => {
+    g.scale = v; save(); e.currentTarget.parentElement.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === e.currentTarget));
+  } }, l)));
+  const desktopOpts = h("div", { hidden: !managed },
+    h("div.setting", h("div.grow", h("div.t", "Resolution"), h("div.d", "Higher looks sharper and needs a stronger graphics card. 2× suits most PCs; 4× and up want a gaming GPU.")), scaleBtns),
+    h("div.setting", h("div.grow", h("div.t", "Widescreen"), h("div.d", "Stretch 4:3 games to fill a widescreen TV properly where the emulator can (some games show glitches at the edges).")), toggle(g.widescreen, (v) => { g.widescreen = v; save(); })),
+    h("div.setting", h("div.grow", h("div.t", "Show FPS"), h("div.d", "A frame-rate counter in the corner while you play.")), toggle(g.fps, (v) => { g.fps = v; save(); })),
+    h("div.setting", h("div.grow", h("div.t", "V-sync"), h("div.d", "Prevents screen tearing. Turn off if games feel laggy.")), toggle(g.vsync, (v) => { g.vsync = v; save(); })));
+
+  const filters = { ...(store.profile.settings?.filters || {}) };
+  const consoles = store.systemList.filter((s) => !s.native);
+  const filterRows = h("div.list", consoles.map((s) => h("div.list-item", { style: { cursor: "default" } },
+    h("span.sw", { style: { width: "10px", height: "10px", borderRadius: "3px", background: s.color, flex: "none" } }),
+    h("div.grow", h("div.t", s.name)),
+    h("label.field", { style: { width: "190px", height: "40px" } }, h("select", { onchange: async (e) => { filters[s.id] = e.target.value; try { await saveProfileSettings({ filters }); } catch (err) { toastError(err); } } },
+      FILTER_CHOICES.map(([v, l]) => h("option", { value: v, selected: (filters[s.id] || "sharp") === v }, l)))))));
+  const setAll = (v) => { for (const s of consoles) filters[s.id] = v; saveProfileSettings({ filters }).then(() => go("/settings/graphics")).catch(toastError); };
+
+  root.append(
+    store.state.desktop ? h("div.card", h("h3", "Desktop emulators"),
+      h("div.setting", h("div.grow", h("div.t", "Let Phosphor set graphics"), h("div.d", "One set of choices for Dolphin, Flycast, PCSX2 and xemu. Turn off to use each emulator's own settings instead.")),
+        toggle(managed, (v) => { g.mode = v ? "phosphor" : "emulator"; desktopOpts.hidden = !v; save(); })),
+      desktopOpts) : null,
+    desktopCard("graphics"),
+    h("div.card", h("h3", "In-browser consoles"),
+      h("p", "How each console's picture is drawn. You can also switch this during a game from the game menu (Display)."),
+      h("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" } },
+        h("span", { style: { color: "var(--text-3)", fontSize: "13px", alignSelf: "center" } }, "Set all to:"),
+        FILTER_CHOICES.map(([v, l]) => h("button.btn.small", { "data-nav": "", onclick: () => setAll(v) }, l))),
+      filterRows));
+}
 
 // ---------------- Library ----------------
 async function library(root) {
@@ -339,13 +523,7 @@ async function general(root) {
         const current = await promptBox("Current PIN", { ok: "Remove" });
         if (current === null) return;
         try { await api.post("/api/parent/pin", { pin: null, current }); store.settings.hasPin = false; toast({ title: "PIN removed", icon: "lock" }); go("/settings/general"); } catch (e) { toastError(e); }
-      } }, "Remove PIN") : null)),
-  h("div.card", h("h3", "Controllers"),
-    h("p", "Plug in or pair any controller and it just works, in the menus and in games. Your phone can be a controller too: start a game and press the phone button."),
-    h("div.kv",
-      h("div", h("dt", "In menus"), h("dd", "A select · B back · X favorite · Y search · LB/RB sections")),
-      h("div", h("dt", "In games"), h("dd", "Press Select + Start together (or Esc) for the game menu")),
-      h("div", h("dt", "Keyboard"), h("dd", "Arrows move · Z/X are B/A · Enter is Start · Esc is the menu")))));
+      } }, "Remove PIN") : null)));
 }
 
 // ---------------- About ----------------

@@ -34,7 +34,8 @@ export class NativeRunner {
 
   // emulatorId, game (absolute path), saveDir (player's save folder), dataDir (emulator settings),
   // sysFiles (the player's BIOS/keys/firmware paths for this console).
-  async start({ emulatorId, game, saveDir, dataDir, gameId, profileId, sysFiles = null, onStep = () => {} }) {
+  // configure: open the emulator's own settings window instead of a game (no play time recorded).
+  async start({ emulatorId, game, saveDir, dataDir, gameId = null, profileId, sysFiles = null, graphics = null, configure = false, onStep = () => {} }) {
     if (this.current || this.preparing) throw Object.assign(new Error(`${NATIVE[(this.current || this.preparing).emulator].name} is already running a game. Close it first.`), { status: 409 });
     const emu = NATIVE[emulatorId];
     const exe = this.native.exePath(emulatorId);
@@ -42,7 +43,8 @@ export class NativeRunner {
     fs.mkdirSync(saveDir, { recursive: true });
     fs.mkdirSync(dataDir, { recursive: true });
     const program = programPath(exe);
-    const ctx = { game, saveDir, dataDir, platform: this.native.platform, sysFiles, program };
+    const ctx = { game, saveDir, dataDir, platform: this.native.platform, sysFiles, program, graphics };
+    if (configure && !emu.configure) throw Object.assign(new Error(`${emu.name} has no settings window to open.`), { status: 400 });
     this.preparing = { emulator: emulatorId };
     let args, env;
     try {
@@ -54,7 +56,7 @@ export class NativeRunner {
         if (code !== 0) throw Object.assign(new Error(`${emu.name} couldn't finish setting up (${step.message.replace(/…$/, "")}).`), { status: 500 });
         fs.writeFileSync(step.marker, new Date().toISOString());
       }
-      ({ args, env } = await emu.launch(ctx));
+      ({ args, env } = await (configure ? emu.configure(ctx) : emu.launch(ctx)));
     } finally { this.preparing = null; }
     const child = this.spawn(program, args, {
       cwd: path.dirname(program),
@@ -64,7 +66,7 @@ export class NativeRunner {
     });
     let stderr = "";
     child.stderr?.on("data", (d) => { stderr = (stderr + d).slice(-4000); });
-    const run = { child, gameId, profileId, emulator: emulatorId, startedAt: Date.now(), program, args };
+    const run = { child, gameId, profileId, emulator: emulatorId, startedAt: Date.now(), program, args, configure };
     this.current = run;
     this.log.info?.(`native: ${emu.name} started for game ${gameId}`);
     const finish = (code, error) => {
@@ -73,7 +75,7 @@ export class NativeRunner {
       const seconds = Math.round((Date.now() - run.startedAt) / 1000);
       // Closing within a few seconds means it never really started. The exit code can't be trusted
       // for that: AppImage launchers report 0 even when the emulator inside crashed.
-      const failed = !!error || (!run.stopped && seconds < this.quickExit);
+      const failed = !!error || (!run.stopped && !configure && seconds < this.quickExit);
       const message = failed ? `${emu.name} closed straight away${error ? ` (${error.message})` : ""}. ${stderr.trim().split("\n").slice(-2).join(" ").slice(0, 300)}`.trim() : null;
       this.last = { gameId, emulator: emulatorId, seconds, code, failed, message, endedAt: Date.now() };
       this.log.info?.(`native: ${emu.name} closed after ${seconds}s (exit ${code})`);

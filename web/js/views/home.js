@@ -46,19 +46,25 @@ export default async function home() {
             h("button.btn.big", { "data-nav": "", onclick: () => open(featured) }, ic("info"), "Details"))))));
   }
 
-  // Quick stats
+  // While the library is small, the most useful thing on Home is a big place to add more.
   const st = data.stats;
-  el.append(h("div.tiles", { style: { marginTop: featured ? "8px" : "34px" } },
+  if (st.games < 12) el.append(addPanel(st.games));
+
+  // Quick stats, once there's enough to say something
+  if (st.games >= 5) el.append(h("div.tiles", { style: { marginTop: featured ? "8px" : "34px" } },
     tile("This week", fmtTime(st.weekSeconds), "#7c5cff"),
     tile("Library", st.games.toLocaleString(), "#36e2c4", "games"),
     tile("Systems", String(st.systems), "#ff5c8a"),
     st.topGame ? tile("Most played", st.topGame.title, systems[st.topGame.system]?.color, null, true) : tile("All time", fmtTime(st.totalSeconds), "#f59e0b")));
 
+  // Each game shows up once: a game you just played isn't also "recently added".
   const recent = data.recent;
+  const shown = new Set(recent.map((g) => g.id));
+  const added = data.added.filter((g) => !shown.has(g.id));
   el.append(...[
     row("Jump back in", recent.map((g) => gameCard(g, { systems, onOpen: open, resumable: g.resumable }))),
     row("Favorites", data.favorites.map((g) => gameCard(g, { systems, onOpen: open })), { more: { href: "/search?favorites=1", label: "All favorites" } }),
-    row("Recently added", data.added.map((g) => gameCard(g, { systems, onOpen: open }))),
+    row("Recently added", added.map((g) => gameCard(g, { systems, onOpen: open }))),
     row("Rediscover", data.rediscover.map((g) => gameCard(g, { systems, onOpen: open })), { count: "Never played" }),
   ].filter(Boolean));
 
@@ -70,6 +76,25 @@ export default async function home() {
       h("div.scroller.wide", syss.map((s) => sysCard(s)))));
   }
   return { el, title: "Home", ambient, autofocus: "#hero-play" };
+}
+
+// Drag target + the drop folder's real location, so adding games never needs explaining.
+function addPanel(count) {
+  const lib = store.state.library;
+  const panel = h("section.add-panel", { "data-nav": "", tabindex: "0", onclick: (e) => { if (!e.target.closest("button")) window.phosphor.addGamesSheet(); } },
+    h("div.add-icon", ic("plus")),
+    h("div.grow",
+      h("h2", count ? "Add more games" : "Add your games"),
+      h("p", "Drag games onto this window: any console, zipped or not, single files or whole folders. Or copy them into your drop folder:"),
+      h("code.add-path", lib.dropFolder)),
+    h("div.add-buttons",
+      h("button.btn.primary", { "data-nav": "", onclick: () => window.phosphor.pickFiles() }, ic("upload"), "Choose files…"),
+      window.phosphorDesktop ? h("button.btn", { "data-nav": "", onclick: () => window.phosphorDesktop.openFolder("Drop Games Here") }, ic("folder"), "Open drop folder") : null,
+      h("button.btn", { "data-nav": "", onclick: () => freeGamesSheet() }, ic("gift"), "Free games")));
+  panel.addEventListener("dragover", () => panel.classList.add("over"));
+  panel.addEventListener("dragleave", () => panel.classList.remove("over"));
+  panel.addEventListener("drop", () => panel.classList.remove("over"));
+  return panel;
 }
 
 function tile(k, v, color, unit, small = false) {

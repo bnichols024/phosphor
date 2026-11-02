@@ -403,3 +403,34 @@ test("Switch 2 (Eglantine): newest pre-release build, unpacked game folders, its
   fs.rmSync(dir, { recursive: true, force: true });
 });
 const NATIVE_launch = (emu, ctx) => emu.launch(ctx);
+
+test("Settings › Graphics reaches the emulators; Open settings starts an emulator without a game", async () => {
+  const { NATIVE } = catalog;
+  const d = tmpdir("phosphor-gfx-");
+  const g = { scale: 3, widescreen: true, fps: true, vsync: false };
+  const dol = NATIVE.dolphin.launch({ game: "/g/x.iso", saveDir: d, dataDir: d, platform: "linux", graphics: g });
+  for (const want of ["GFX.Settings.InternalResolution=3", "GFX.Settings.wideScreenHack=True", "GFX.Settings.ShowFPS=True", "GFX.Hardware.VSync=False"]) assert.ok(dol.args.includes(want), want);
+  assert.ok(NATIVE.flycast.launch({ game: "/g/x.cdi", saveDir: d, dataDir: d, graphics: g }).args.includes("config:rend.Resolution=1440"));
+  NATIVE.pcsx2.launch({ game: "/g/x.iso", saveDir: d, dataDir: d, graphics: g });
+  const ini = fs.readFileSync(path.join(d, "PCSX2", "inis", "PCSX2.ini"), "utf8");
+  assert.match(ini, /upscale_multiplier = 3/);
+  assert.match(ini, /EnableWideScreenPatches = true/);
+  const none = NATIVE.dolphin.launch({ game: "/g/x.iso", saveDir: d, dataDir: d, platform: "linux", graphics: null });
+  assert.ok(!none.args.some((a) => a.startsWith("GFX.")), "'use the emulator's own settings' leaves them alone");
+  // Configure mode: Dolphin's main window with the player's folder, no game, no batch mode.
+  const cfg = NATIVE.dolphin.configure({ saveDir: d, dataDir: d, platform: "linux" });
+  assert.deepEqual(cfg.args.slice(0, 2), ["-u", d]);
+  assert.ok(!cfg.args.includes("-b") && !cfg.args.includes("-e"));
+  assert.equal(NATIVE.shadps4.configure, undefined, "no settings window to open");
+  const calls = [];
+  const { NativeRunner } = await import("../../server/native/runner.js");
+  const n = new NativeEmulators({ bundledDir: path.join(d, "b"), userDir: path.join(d, "u"), platform: "linux", log: {} });
+  await n.install("dolphin", await catalog.latestRelease(catalog.NATIVE.dolphin, "linux"), { root: path.join(d, "b") });
+  const exits = [];
+  const r = new NativeRunner({ native: n, log: {}, spawnFn: fakeSpawn(calls), onExit: (e) => exits.push(e) });
+  await r.start({ emulatorId: "dolphin", configure: true, game: null, saveDir: d, dataDir: d, profileId: 1 });
+  assert.ok(!calls[0].args.includes("-e"));
+  calls[0].child.emit("exit", 0);
+  assert.equal(exits[0].failed, false, "closing a settings window quickly isn't a failure");
+  fs.rmSync(d, { recursive: true, force: true });
+});

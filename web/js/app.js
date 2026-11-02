@@ -5,6 +5,7 @@ import { h, $, $$, ic, svg, toast, toastError, sheet, closeTopSheet, sheetOpen, 
 import { LOGO } from "./icons.js";
 import { initNav, setNavHandlers, focusables, focusEl, onActivity } from "./nav.js";
 import { sound } from "./sound.js";
+import { freeGamesSheet } from "./freegames.js";
 
 const ROUTES = [
   { re: /^\/$/, view: () => import("./views/home.js"), nav: "home" },
@@ -117,6 +118,7 @@ function buildShell() {
   const rail = h("nav.rail", { "aria-label": "Main" },
     h("a.logo", { href: "/", "aria-label": "Phosphor home", html: LOGO }),
     NAV.map((n) => h("a.rail-btn", { href: n.href, "data-id": n.id, class: n.cls || "", "data-nav": "" }, ic(n.icon), h("span", n.label))),
+    h("button.rail-btn.add-btn", { "data-nav": "", "aria-label": "Add games", onclick: () => addGamesSheet() }, ic("plus"), h("span", "Add games")),
     h("div.spacer"),
     h("div.scan-pill#scanpill", h("i"), h("span", "Scanning")),
     h("button.rail-btn#who-btn", { "data-nav": "", "aria-label": "Switch player", onclick: () => profileSheet() }, h("span.avatar#rail-avatar")));
@@ -124,7 +126,9 @@ function buildShell() {
   document.body.prepend(h("div#ambient", h("div.blob.b1"), h("div.blob.b2"), h("div.blob.b3")), shell,
     h("div#dropzone", h("div.ring", h("div", ic("upload"), h("h2", "Drop to add games"), h("p", "Any console, zipped or not. Phosphor sorts them for you.")))),
     h("div#hints", h("span", h("kbd.a", "A"), "Select"), h("span", h("kbd.b", "B"), "Back"), h("span", h("kbd.x", "X"), "Favorite"), h("span", h("kbd.y", "Y"), "Search"), h("span", h("kbd", "LB/RB"), "Sections")),
-    h("input#file-input", { type: "file", multiple: true, hidden: true, onchange: (e) => { uploadFiles([...e.target.files].map((f) => ({ file: f, path: f.name }))); e.target.value = ""; } }));
+    h("input#file-input", { type: "file", multiple: true, hidden: true, onchange: (e) => { uploadFiles([...e.target.files].map((f) => ({ file: f, path: f.name }))); e.target.value = ""; } }),
+    // Whole folders keep their layout (multi-file and folder games stay together).
+    h("input#folder-input", { type: "file", multiple: true, hidden: true, webkitdirectory: true, onchange: (e) => { uploadFiles([...e.target.files].map((f) => ({ file: f, path: f.webkitRelativePath || f.name }))); e.target.value = ""; } }));
   updateRail();
 }
 
@@ -289,6 +293,34 @@ async function readEntry(entry, prefix) {
 }
 
 export function pickFiles() { $("#file-input").click(); }
+export function pickFolder() { $("#folder-input").click(); }
+
+// One place that answers "how do I add games?": a drop target, pickers, and where the drop
+// folder is on disk (with a button to open it in the desktop app).
+export function addGamesSheet() {
+  const lib = store.state.library;
+  const target = h("div.add-drop", { "data-nav": "", tabindex: "0", onclick: () => pickFiles(), onkeydown: (e) => { if (e.key === "Enter") pickFiles(); } },
+    ic("upload"), h("b", "Drag games here"), h("span", "or anywhere on this window. Any console, zipped or not, single files or whole folders."));
+  target.addEventListener("dragover", (e) => { if (hasFiles(e)) target.classList.add("over"); });
+  target.addEventListener("dragleave", () => target.classList.remove("over"));
+  target.addEventListener("drop", () => { target.classList.remove("over"); setTimeout(() => s.close(), 50); });
+  const body = h("div",
+    target,
+    h("div.add-actions",
+      h("button.btn", { "data-nav": "", onclick: () => { s.close(); pickFiles(); } }, ic("upload"), "Choose files…"),
+      h("button.btn", { "data-nav": "", onclick: () => { s.close(); pickFolder(); } }, ic("folder"), "Choose a folder…"),
+      h("button.btn", { "data-nav": "", onclick: () => { s.close(); freeGamesSheet(); } }, ic("gift"), "Get free games")),
+    h("div.add-folder",
+      h("div.grow",
+        h("div.k", "Your drop folder"),
+        h("div.v", lib.dropFolder),
+        h("div.d", "Copy or move games into this folder in your file manager and Phosphor sorts them into the right console automatically.")),
+      window.phosphorDesktop
+        ? h("button.btn.small", { "data-nav": "", onclick: () => window.phosphorDesktop.openFolder("Drop Games Here") }, ic("folder"), "Open folder")
+        : h("button.btn.small", { "data-nav": "", onclick: () => { navigator.clipboard?.writeText(lib.dropFolder); toast({ title: "Folder path copied", icon: "check", kind: "good" }); } }, "Copy path")),
+    h("p", { style: { color: "var(--text-3)", fontSize: "13px", margin: "14px 0 0" } }, "Want to see every console's folder? ", h("a", { href: "#", onclick: (e) => { e.preventDefault(); s.close(); import("./views/library.js").then((m) => m.folderSheet()); } }, "Where do games go?")));
+  const s = sheet({ title: "Add games", body, wide: true });
+}
 
 let uploading = false;
 const queue = [];
@@ -407,5 +439,5 @@ async function boot() {
   window.addEventListener("pageshow", (e) => { if (e.persisted) { document.body.style.opacity = "1"; render(); } });
 }
 
-window.phosphor = { navigate, uploadFiles, pickFiles, profileSheet, leaveTo, svg };
+window.phosphor = { navigate, uploadFiles, pickFiles, pickFolder, addGamesSheet, profileSheet, leaveTo, svg };
 boot();
