@@ -473,6 +473,13 @@ test("Xbox controllers by default: PS3 (XInput profile), 3DS (any controller), S
     const azIni = fs.readFileSync(path.join(az, "user", "config", "qt-config.ini"), "utf8");
     assert.match(azIni, /profiles\\1\\button_a="engine:sdl,api:controller,maptype:all,button:1"/);
     assert.match(azIni, /profiles\\1\\circle_pad="engine:sdl,api:controller,maptype:all,axis_x:0,axis_y:1,deadzone:0.1"/);
+    assert.match(azIni, /profiles\\1\\button_a\\default=false/, "Azahar ignores a value whose default flag is true");
+    assert.match(azIni, /profiles\\1\\input_maptype=0/, "any controller");
+    // Written once: a keyboard mapping the player chooses afterwards is kept.
+    const azFile = path.join(az, "user", "config", "qt-config.ini");
+    fs.writeFileSync(azFile, azIni.replace(/profiles\\1\\button_a="[^"]*"/, 'profiles\\1\\button_a="code:65,engine:keyboard"'));
+    NATIVE.azahar.launch({ game: "/g/x.3ds", dataDir: az, saveDir: lib, platform: "win32", program: prog("azahar") });
+    assert.match(fs.readFileSync(azFile, "utf8"), /button_a="code:65,engine:keyboard"/);
     // Switch: player 1 maps a pad in Eglantine; Eden and player 2 pick it up.
     const eg1 = path.join(nd, "eglantine", "1");
     const egIni = path.join(eg1, "user", "config", "qt-config.ini");
@@ -485,4 +492,45 @@ test("Xbox controllers by default: PS3 (XInput profile), 3DS (any controller), S
     assert.match(edIni, /player_0_button_a\\default=false/);
     assert.ok(fs.realpathSync(path.join(lib, "bin", "eden", "user")) === fs.realpathSync(path.join(ed2, "user")), "Eden runs from the player's own folder");
   } finally { fs.rmSync(lib, { recursive: true, force: true }); }
+});
+
+test("Windows per-player folders: old shared data carries over, PS3 firmware reinstalls into the new folder", async () => {
+  const { NATIVE, edenFamily } = catalog;
+  const lib = tmpdir("phosphor-move-");
+  const nd = path.join(lib, ".phosphor", "native-data");
+  const prog = (emu) => { const p = path.join(lib, "bin", emu, `${emu}.exe`); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, ""); return p; };
+  const old = process.env.APPDATA;
+  process.env.APPDATA = path.join(lib, "AppData");
+  try {
+    // Eden and Azahar used %APPDATA% before they got a folder per player.
+    fs.mkdirSync(path.join(lib, "AppData", "eden", "nand", "user", "save"), { recursive: true });
+    fs.writeFileSync(path.join(lib, "AppData", "eden", "nand", "user", "save", "slot1"), "progress");
+    fs.mkdirSync(path.join(lib, "AppData", "Azahar", "sdmc"), { recursive: true });
+    fs.writeFileSync(path.join(lib, "AppData", "Azahar", "sdmc", "save"), "3ds progress");
+    const ed1 = path.join(nd, "eden", "1");
+    edenFamily({ dataDir: ed1, platform: "win32", program: prog("eden") });
+    assert.equal(fs.readFileSync(path.join(ed1, "user", "nand", "user", "save", "slot1"), "utf8"), "progress");
+    const az1 = path.join(nd, "azahar", "1");
+    NATIVE.azahar.launch({ game: "/g/x.3ds", dataDir: az1, saveDir: lib, platform: "win32", program: prog("azahar") });
+    assert.equal(fs.readFileSync(path.join(az1, "user", "sdmc", "save"), "utf8"), "3ds progress");
+    // Only into a new player folder: later changes in %APPDATA% don't overwrite the player's own.
+    fs.writeFileSync(path.join(lib, "AppData", "eden", "nand", "user", "save", "slot1"), "older");
+    edenFamily({ dataDir: ed1, platform: "win32", program: prog("eden") });
+    assert.equal(fs.readFileSync(path.join(ed1, "user", "nand", "user", "save", "slot1"), "utf8"), "progress");
+    // Eglantine was portable from the start: nothing copied from Eden's folder.
+    const eg1 = path.join(nd, "eglantine", "1");
+    edenFamily({ dataDir: eg1, platform: "win32", program: prog("eglantine") });
+    assert.ok(!fs.existsSync(path.join(eg1, "user", "nand")));
+    // PS3: a firmware marker from before the per-player RPCS3 folder doesn't skip the install.
+    const pup = path.join(lib, "PS3UPDAT.PUP");
+    fs.writeFileSync(pup, "x".repeat(10));
+    const ps = path.join(nd, "rpcs3", "1");
+    fs.mkdirSync(ps, { recursive: true });
+    fs.writeFileSync(path.join(ps, "ps3-firmware-10.done"), "old");
+    assert.equal(NATIVE.rpcs3.prepare({ dataDir: ps, platform: "win32", sysFiles: { firmware: pup } }).length, 1);
+    assert.match(NATIVE.rpcs3.prepare({ dataDir: ps, platform: "win32", sysFiles: { firmware: pup } })[0].marker, /rpcs3[\\/]ps3-firmware-10\.done$/);
+  } finally {
+    process.env.APPDATA = old;
+    fs.rmSync(lib, { recursive: true, force: true });
+  }
 });

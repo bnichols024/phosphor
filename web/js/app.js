@@ -342,7 +342,7 @@ async function runUploads() {
     h("div.file#up-file"),
     h("div.up-foot", h("span#up-count", ""), cancelBtn));
   document.body.append(panel);
-  let done = 0, failed = 0, bytesDone = 0;
+  let done = 0, failed = 0, bytesDone = 0, since = 0;
   const total = () => queue.reduce((a, f) => a + f.file.size, 0) + bytesDone + (current?.file.size || 0);
   let current = null;
   // Speed from the last few seconds, so the estimate settles instead of jumping around.
@@ -369,10 +369,11 @@ async function runUploads() {
     $("#up-count", panel).textContent = `File ${done + failed + 1} of ${done + failed + queue.length + 1}`;
     const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     // The server reports what it has really written; the browser's own number is only a fallback.
-    let serverBytes = 0, clientBytes = 0;
+    let serverBytes = 0, clientBytes = 0, finished = false;
     const poll = setInterval(async () => {
       try {
         const r = await api.get(`/api/upload/progress?id=${encodeURIComponent(id)}`);
+        if (finished) return; // answer to a poll sent before this file finished
         serverBytes = Math.max(serverBytes, r.written || 0);
         show(serverBytes);
       } catch { /* next tick */ }
@@ -383,13 +384,18 @@ async function runUploads() {
         xhr.open("PUT", `/api/upload?id=${encodeURIComponent(id)}&path=${encodeURIComponent(item.path)}`);
         if (getProfile()) xhr.setRequestHeader("x-profile", String(getProfile()));
         xhr.upload.onprogress = (ev) => { clientBytes = ev.loaded; if (!serverBytes) show(Math.min(clientBytes, item.file.size * 0.02)); };
-        xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error(xhr.responseText)));
+        xhr.onload = () => {
+          if (xhr.status >= 300) return reject(new Error(xhr.responseText));
+          try { const at = JSON.parse(xhr.responseText).at; if (at && (!since || at < since)) since = at; } catch { /* older server */ }
+          resolve();
+        };
         xhr.onerror = () => reject(new Error("network error"));
         xhr.onabort = () => reject(new Error("cancelled"));
         xhr.send(item.file);
       });
       done++;
     } catch { if (!cancelled) failed++; }
+    finished = true;
     clearInterval(poll);
     bytesDone += item.file.size;
     current = null;
@@ -411,7 +417,7 @@ async function runUploads() {
   if (!done) { setTimeout(() => panel.remove(), 2500); return; }
   // Say where the games went once the library has sorted them.
   try {
-    const scan = await api.post("/api/library/scan?wait=1");
+    const scan = await api.post(`/api/library/scan?wait=1&since=${since}`);
     const added = scan?.added ?? 0;
     $("#up-title", panel).textContent = added ? `Added ${plural(added, "game")}` : scan?.unknown?.length ? "Copied, but not recognised" : "Copied: already in your library";
     $("#up-file", panel).textContent = added ? "They're in your library now." : scan?.unknown?.length ? "They're still in the drop folder (see Settings › Library)." : "Nothing new to add.";

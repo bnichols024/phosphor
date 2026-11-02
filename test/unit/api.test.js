@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -50,6 +51,25 @@ test("uploads land in the drop folder and get sorted into the right console", as
   assert.ok(fs.existsSync(path.join(root, "ROMs", "Game Boy Advance", "Zipped (USA).zip")));
   const games = (await j("/api/games")).body;
   assert.deepEqual(games.map((g) => g.system).sort(), ["gba", "genesis", "nes"]);
+});
+
+test("a big upload into a new folder arrives byte for byte, and the result counts every game added", async () => {
+  const before = Date.now();
+  // Two games uploaded one after another, the first sorted by its own scan before the second lands.
+  const r1 = await fetch(`${base}/api/upload?id=t1&path=${encodeURIComponent("new/deeper/Big One.nes")}`, { method: "PUT", body: Buffer.concat([nesRom(), crypto.randomBytes(8 * 1024 * 1024)]), headers: H });
+  assert.equal(r1.status, 201);
+  const { at } = await r1.json();
+  assert.ok(at >= before);
+  await app.library.scan({ reason: "watcher" });
+  const big = path.join(root, "ROMs", "NES", "Big One.nes");
+  assert.equal(fs.statSync(big).size, nesRom().length + 8 * 1024 * 1024, "no bytes lost while the folder was being made");
+  const second = genesisRom(); second[0x1ff] ^= 0x5a;
+  assert.equal((await fetch(`${base}/api/upload?id=t2&path=${encodeURIComponent("Second.bin")}`, { method: "PUT", body: second, headers: H })).status, 201);
+  const res = (await j(`/api/library/scan?wait=1&since=${at}`, { method: "POST" })).body;
+  assert.equal(res.added, 2, "counts the game an earlier scan already sorted too");
+  fs.rmSync(big);
+  fs.rmSync(path.join(root, "ROMs", "Genesis", "Second.bin"), { force: true });
+  await app.library.scan({ reason: "test" });
 });
 
 test("renamed files keep their play history", async () => {

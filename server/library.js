@@ -150,6 +150,16 @@ export class Library extends EventEmitter {
     return this.scanning;
   }
 
+  // Scan, then wait until no scan is running (including any queued while this one ran).
+  async settle({ reason = "manual" } = {}) {
+    this.scan({ reason });
+    while (this.scanning) await this.scanning.catch(() => {});
+  }
+
+  addedSince(ms) {
+    return this.db.get("SELECT COUNT(*) n FROM games WHERE added_at >= ? AND missing_since IS NULL", ms).n;
+  }
+
   async _scan(reason, full = false) {
     const t0 = Date.now();
     this._emit({ phase: "sorting", done: 0, total: 0, current: "", added: 0 });

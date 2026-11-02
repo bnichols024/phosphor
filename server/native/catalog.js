@@ -134,7 +134,9 @@ export const NATIVE = {
       const { dataDir, sysFiles } = ctx;
       const pup = sysFiles?.firmware;
       if (!pup) return [];
-      const marker = doneMarker(dataDir, "ps3-firmware", pup);
+      // On Windows the firmware lives in the per-player RPCS3 folder (rpcs3Env), so its marker does too;
+      // a marker from before that folder existed must not skip the install.
+      const marker = doneMarker(ctx.platform === "win32" ? path.join(dataDir, "rpcs3") : dataDir, "ps3-firmware", pup);
       return fs.existsSync(marker) ? [] : [{ args: ["--headless", "--installfw", pup], marker, env: rpcs3Env(ctx), message: "Installing the PS3 system software (one time)…" }];
     },
     configure(ctx) { return { args: [], env: rpcs3Env(ctx) }; },
@@ -365,11 +367,17 @@ export async function latestRelease(emu, platform = process.platform) {
 // Eden, Eglantine and Azahar switch to "portable" mode when a "user" folder sits next to the
 // program. Phosphor makes that folder a link to the player's own folder, so each player (and each
 // emulator) has separate settings and saves. If the install folder isn't writable, the emulator
-// falls back to its normal shared folder.
-function portableUser(program, dataDir) {
+// falls back to its normal shared folder. `seedFrom`: the shared folder this emulator used before
+// Phosphor gave it a per-player one; a new player folder starts as a copy, so settings, saves and
+// installed content carry over.
+function portableUser(program, dataDir, seedFrom = null) {
   if (!program) return null;
   const own = path.join(dataDir, "user");
+  const fresh = !fs.existsSync(own);
   fs.mkdirSync(own, { recursive: true });
+  if (fresh && seedFrom && fs.existsSync(seedFrom)) {
+    try { fs.cpSync(seedFrom, own, { recursive: true, errorOnExist: false }); } catch { /* start empty */ }
+  }
   const link = path.join(path.dirname(program), "user");
   try {
     try { if (fs.realpathSync(link) !== fs.realpathSync(own)) fs.unlinkSync(link); } catch { /* no link yet */ }
@@ -403,7 +411,9 @@ export function edenFamily({ dataDir, platform, sysFiles, program }) {
   let base = appDataDir(platform, "eden", { xdg: env.XDG_DATA_HOME });
   let config = platform === "linux" ? path.join(env.XDG_CONFIG_HOME, "eden") : path.join(base, "config");
   if (platform === "win32") {
-    const own = portableUser(program, dataDir);
+    // Eden used %APPDATA%\eden before; Eglantine was already portable (its own folder from the start).
+    const isEden = path.basename(path.dirname(dataDir)) === "eden";
+    const own = portableUser(program, dataDir, isEden && process.env.APPDATA ? path.join(process.env.APPDATA, "eden") : null);
     if (own) { base = own; config = path.join(own, "config"); }
   }
   copyIfChanged(sysFiles?.prodKeys, path.join(base, "keys", "prod.keys"));
@@ -431,22 +441,28 @@ function azaharSetup({ dataDir, platform, program }) {
   const env = platform === "linux" ? xdg(dataDir) : {};
   let config = null;
   if (platform === "win32") {
-    const own = portableUser(program, dataDir);
-    config = path.join(own || path.join(process.env.APPDATA || "", "Azahar"), "config");
+    const shared = path.join(process.env.APPDATA || "", "Azahar");
+    const own = portableUser(program, dataDir, process.env.APPDATA ? shared : null);
+    config = path.join(own || shared, "config");
   } else if (platform === "linux") config = path.join(env.XDG_CONFIG_HOME, "azahar-emu");
   if (!config) return env;
   const ini = path.join(config, "qt-config.ini");
-  const controls = readIniSection(ini, "Controls") || {};
-  const current = controls["profiles\\1\\button_a"] || "";
-  if (!/engine:sdl/.test(current)) {
+  // Written once per player: after that, whatever the player maps (keyboard included) is kept.
+  const written = path.join(dataDir, "azahar-pad.done");
+  const current = (readIniSection(ini, "Controls") || {})["profiles\\1\\button_a"] || "";
+  if (!fs.existsSync(written) && !/engine:sdl/.test(current)) {
     const pad = (rest) => `"engine:sdl,api:controller,maptype:all,${rest}"`;
-    const keys = { profile: "0", "profiles\\size": "1", "profiles\\1\\name": "Default", "profiles\\1\\input_maptype": "2" };
+    const keys = { profile: "0", "profiles\\size": "1", "profiles\\1\\name": "Default", "profiles\\1\\input_maptype": "0" };
     for (const [k, b] of Object.entries(AZ_BUTTONS)) keys[`profiles\\1\\${k}`] = pad(`button:${b}`);
     keys["profiles\\1\\button_zl"] = pad("axis:4,direction:+,threshold:0.5");
     keys["profiles\\1\\button_zr"] = pad("axis:5,direction:+,threshold:0.5");
     keys["profiles\\1\\circle_pad"] = pad("axis_x:0,axis_y:1,deadzone:0.1");
     keys["profiles\\1\\c_stick"] = pad("axis_x:2,axis_y:3,deadzone:0.1");
+    // Azahar ignores a value whose "\default" flag is true (Qt writes one beside every setting).
+    for (const k of Object.keys(keys)) if (k.startsWith("profiles\\1\\") && k !== "profiles\\1\\name") keys[`${k}\\default`] = "false";
     mergeIni(ini, { Controls: keys }, { sep: "=" });
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(written, new Date().toISOString());
   }
   return env;
 }

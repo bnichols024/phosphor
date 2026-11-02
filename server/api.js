@@ -760,9 +760,17 @@ export function buildApi(ctx) {
   r.post("/api/library/scan", (req, res) => {
     const q = new URL(req.url, "http://x").searchParams;
     const full = q.get("full") === "1";
-    const scan = library.scan({ reason: full ? "re-check everything" : q.get("wait") ? "added files" : "manual", full });
-    // ?wait=1: answer when it's done, with what it found (used after adding games).
-    if (q.get("wait")) return scan.then((r) => json(res, 200, { ok: true, added: r?.added ?? 0, sorted: r?.sorted ?? 0, unknown: library.status.unknown || [] }));
+    const wait = q.get("wait") === "1";
+    // ?wait=1&since=<ms>: answer once the library is idle, counting every game added since the
+    // first upload started. The folder watcher scans while uploads are still running, so the last
+    // scan alone would miss games an earlier one already picked up.
+    if (wait) {
+      const since = Number(q.get("since")) || Date.now();
+      return library.settle({ reason: "added files" }).then(() => json(res, 200, {
+        ok: true, added: library.addedSince(since), unknown: library.status.unknown || [],
+      }));
+    }
+    library.scan({ reason: full ? "re-check everything" : "manual", full });
     json(res, 202, { ok: true });
   });
   r.get("/api/library/status", (req, res) => json(res, 200, library.status));
@@ -779,11 +787,9 @@ export function buildApi(ctx) {
   r.put("/api/upload", async (req, res) => {
     const q = new URL(req.url, "http://x").searchParams;
     const id = String(q.get("id") || "").slice(0, 64);
-    const track = id ? { written: 0, total: Number(req.headers["content-length"]) || 0, at: Date.now() } : null;
-    if (track) {
-      uploads.set(id, track);
-      req.on("data", (c) => { track.written += c.length; });
-    }
+    const startedAt = Date.now();
+    const track = id ? { written: 0, total: Number(req.headers["content-length"]) || 0, at: startedAt } : null;
+    if (track) uploads.set(id, track);
     const forget = () => { if (track) { track.done = true; setTimeout(() => uploads.delete(id), 60000); } };
     req.on("close", forget);
     const rel = String(q.get("path") || q.get("name") || "").replace(/\\/g, "/");
@@ -794,6 +800,9 @@ export function buildApi(ctx) {
     const tmp = path.join(library.dropDir, `.upload-${crypto.randomBytes(6).toString("hex")}`);
     await new Promise((resolve, reject) => {
       const out = fs.createWriteStream(tmp);
+      // Count only once the file is open: a "data" listener starts the stream flowing, and bytes
+      // that arrived before the pipe was attached would be counted but never written.
+      if (track) req.on("data", (c) => { track.written += c.length; });
       req.pipe(out);
       out.on("finish", resolve);
       out.on("error", reject);
@@ -801,7 +810,7 @@ export function buildApi(ctx) {
       req.on("aborted", () => reject(new HttpError(400, "Upload cancelled.")));
     }).catch(async (e) => { await fsp.unlink(tmp).catch(() => {}); throw e; });
     await fsp.rename(tmp, dest);
-    json(res, 201, { ok: true, name: parts.join("/") });
+    json(res, 201, { ok: true, name: parts.join("/"), at: startedAt });
   });
 
   r.get("/api/bios", async (req, res) => json(res, 200, await library.biosStatus()));
