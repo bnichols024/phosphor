@@ -11,10 +11,10 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: 24 }
       - run: npm ci
       - run: npm run emulators
@@ -25,7 +25,7 @@ jobs:
   # updater never sees a half-finished release.
   draft:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Create the draft release
         env:
@@ -36,22 +36,30 @@ jobs:
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --title "Phosphor ${TAG#v}" \
               --notes "Download the installer for your computer below. Phosphor updates itself from here on Windows and Linux (AppImage); on a Mac, download the new version and install it over the old one."
 
+  # The Mac build is optional: GitHub's Mac machines are sometimes all busy (the job then fails
+  # without running), and that shouldn't hold back the Windows and Linux release. Re-run it from
+  # the Actions page before the release is published, or the next release brings Mac back.
   desktop:
     needs: draft
+    continue-on-error: ${{ matrix.optional }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
             args: --win nsis zip --x64
+            optional: false
           - os: macos-latest
             args: --mac dmg zip --x64 --arm64
-          - os: ubuntu-latest
+            optional: true
+          - os: ubuntu-24.04
             args: --linux AppImage deb tar.gz --x64
+            optional: false
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: 24 }
       - run: npm ci
       - run: npm run emulators
@@ -65,7 +73,7 @@ jobs:
 
   publish:
     needs: desktop
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Publish the release
         env:
