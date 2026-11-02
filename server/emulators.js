@@ -203,6 +203,21 @@ export class Emulators {
   }
 
   // ---- one emulator at a time ----
+  // Is there a newer version of just this one? (For the console pages.)
+  async checkOne({ kind, id } = {}) {
+    if (kind === "native") {
+      if (!this.native) throw new Error("Desktop emulators only exist in the desktop app.");
+      const n = await this.native.checkOne(id);
+      const prev = this.native.summary().find((x) => x.id === id)?.previous || null;
+      return { kind, id, name: n.name, from: n.from, to: n.to, changed: n.changed, previous: prev };
+    }
+    if (kind !== "core" || !ALL_CORES.includes(id)) throw new Error("Unknown emulator.");
+    const a = this.active();
+    const latest = await this._latest(corePkg(id));
+    const from = a?.cores?.[id] || null;
+    return { kind, id, name: coreName(id), from, to: latest.version, changed: from !== latest.version, previous: a ? this._itemPrevious(a, this.listInstalls()).cores[id] || null : null };
+  }
+
   // only: { kind: "runtime" | "core" | "native", id }. Browser emulators still get a whole new
   // install folder (so switching stays atomic and Undo works), but every other file is hard-linked
   // from the current one, so it's quick and takes no extra space.

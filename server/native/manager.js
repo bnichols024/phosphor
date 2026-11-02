@@ -75,6 +75,14 @@ export class NativeEmulators {
     return NATIVE_IDS.map((id) => out.find((o) => o.id === id)).filter(Boolean);
   }
 
+  // The same check for one emulator (one request instead of one per emulator).
+  async checkOne(id) {
+    if (!this.supported(id)) throw new Error(`${NATIVE[id]?.name || id} doesn't run on this computer.`);
+    const have = this.active(id)?.version || null;
+    const rel = await latestRelease(NATIVE[id], this.platform);
+    return { id, name: NATIVE[id].name, from: have, to: rel.version, release: rel, changed: have !== rel.version };
+  }
+
   // Download + unpack one emulator into `root` (default: the update folder) and make it active.
   async install(id, rel, { root = this.userDir, onProgress = () => {} } = {}) {
     const emu = NATIVE[id];

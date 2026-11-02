@@ -135,3 +135,17 @@ test("each emulator can be updated and rolled back on its own", async () => {
     delete versions["@emulatorjs/emulatorjs"];
   }
 });
+
+test("one emulator can be checked on its own (console pages)", async () => {
+  const userDir = tmpdir("phosphor-emu-");
+  version = "9.0.0";
+  const emu = new Emulators({ bundledDir: null, userDir, log: {} });
+  await emu.update();
+  versions["@emulatorjs/core-snes9x"] = "9.0.7";
+  try {
+    const c = await emu.checkOne({ kind: "core", id: "snes9x" });
+    assert.deepEqual([c.name, c.from, c.to, c.changed], ["Snes9x", "9.0.0", "9.0.7", true]);
+    assert.equal((await emu.checkOne({ kind: "core", id: "fceumm" })).changed, false);
+    await assert.rejects(() => emu.checkOne({ kind: "core", id: "nope" }));
+  } finally { delete versions["@emulatorjs/core-snes9x"]; }
+});

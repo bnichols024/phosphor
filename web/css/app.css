@@ -647,3 +647,17 @@ body.kid .hide-kid { display: none !important; }
 .segmented button { height: 34px; padding: 0 12px; border-radius: 9px; border: 0; background: transparent; color: var(--text-2); font: 600 13px var(--font); cursor: pointer; }
 .segmented button:hover { color: var(--text); background: var(--surface-2); }
 .segmented button.on { background: var(--accent); color: #fff; }
+
+/* ---------- console page: its emulator ---------- */
+.emu-bar { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; margin-top: 14px; padding: 8px 10px 8px 14px; border-radius: 14px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--stroke); font-size: 13.5px; min-height: 48px; }
+.emu-bar > svg { width: 17px; height: 17px; color: var(--text-2); }
+.emu-name { color: var(--text-2); }
+.emu-name b { color: var(--text); }
+.emu-status { display: inline-flex; align-items: center; gap: 6px; color: var(--text-3); font-weight: 600; }
+.emu-status svg { width: 15px; height: 15px; }
+.emu-status.ok { color: var(--good); }
+.emu-status.new { color: #c9bcff; }
+.emu-status .spin { width: 13px; height: 13px; border-radius: 50%; border: 2px solid rgba(255,255,255,.2); border-top-color: var(--text); animation: spin .8s linear infinite; }
+.emu-actions { display: inline-flex; gap: 8px; }
+.emu-actions .btn.small { height: 32px; padding: 0 12px; font-size: 13px; }
+@keyframes spin { to { transform: rotate(360deg); } }

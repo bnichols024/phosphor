@@ -844,6 +844,11 @@ export function buildApi(ctx) {
     emulators.update({ only }).catch(() => {});
     json(res, 202, { started: true });
   });
+  r.post("/api/emulators/check-one", async (req, res) => {
+    const item = await emulatorItem(req);
+    if (!item) throw new HttpError(400, "Which emulator?");
+    try { json(res, 200, await emulators.checkOne(item)); } catch (e) { throw new HttpError(502, e.message); }
+  });
   r.post("/api/emulators/rollback", async (req, res) => {
     const only = await emulatorItem(req);
     try { json(res, 200, only ? await emulators.rollbackOne(only) : await emulators.rollback()); } catch (e) { throw new HttpError(400, e.message); }

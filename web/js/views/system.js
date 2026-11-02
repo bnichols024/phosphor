@@ -1,6 +1,7 @@
 import { api } from "../api.js";
-import { store, go } from "../store.js";
-import { h, ic, consoleArt, gameCard, plural, emptyState, hexToRgb, toast, toastError } from "../ui.js";
+import { store, go, refreshState } from "../store.js";
+import { h, ic, consoleArt, gameCard, plural, emptyState, hexToRgb, toast, toastError, confirmBox } from "../ui.js";
+import { sound } from "../sound.js";
 import { folderSheet } from "./library.js";
 
 const SORTS = [["az", "A–Z"], ["recent", "Recently played"], ["played", "Most played"], ["added", "Newest"], ["year", "Release year"]];
@@ -19,6 +20,73 @@ export function groupVariants(games, order) {
     }
   }
   return [...best.values()];
+}
+
+// This console's emulator: version, a check for a newer one, and Update / Previous version for
+// just this emulator (the same as its row in Settings › Emulators).
+function emulatorBar(sys) {
+  if (sys.native && !store.state.desktop) return null;
+  const item = sys.native ? { kind: "native", id: sys.native } : { kind: "core", id: sys.core };
+  const summary = store.state.emulators || {};
+  const name = sys.native ? sys.nativeName : summary.coreNames?.[sys.core] || sys.core;
+  const version = () => {
+    const sm = store.state.emulators || {};
+    return sys.native ? sm.native?.find((n) => n.id === sys.native)?.version : sm.active?.cores?.[sys.core];
+  };
+  const status = h("span.emu-status");
+  const actions = h("span.emu-actions");
+  const label = h("span.emu-name");
+  const bar = h("div.emu-bar", ic("cpu"), label, status, actions);
+  let info = null;
+  const busy = (text) => { status.className = "emu-status busy"; status.replaceChildren(h("i.spin"), text); actions.replaceChildren(); };
+  const draw = () => {
+    const v = version();
+    label.replaceChildren(h("b", name), v ? ` v${v}` : " · not installed");
+    actions.replaceChildren();
+    if (!info) return;
+    if (info.error) { status.className = "emu-status"; status.textContent = "Couldn't check for updates"; }
+    else if (info.changed) {
+      status.className = "emu-status new"; status.textContent = `v${info.to} available`;
+      actions.append(h("button.btn.small.primary", { "data-nav": "", onclick: update }, ic("download"), v ? "Update" : "Install"));
+    } else { status.className = "emu-status ok"; status.replaceChildren(ic("check"), "Up to date"); }
+    if (info.previous && info.previous !== info.to) {
+      actions.append(h("button.btn.small.ghost", { "data-nav": "", onclick: rollback }, ic("history"), `Previous version (v${info.previous})`));
+    }
+  };
+  const check = async () => {
+    busy("Checking for updates…");
+    try { info = await api.post("/api/emulators/check-one", item); } catch (e) { info = { error: e.message }; }
+    draw();
+  };
+  const onProgress = async (e) => {
+    if (!bar.isConnected) { window.removeEventListener("phosphor:emulators", onProgress); return; }
+    const st = e.detail;
+    if (st.running) busy(st.message || "Updating…");
+    else if (st.phase === "done" || st.phase === "failed") {
+      await refreshState().catch(() => {});
+      if (st.phase === "failed") { status.className = "emu-status"; status.textContent = st.error || "Update failed"; }
+      await check();
+    }
+  };
+  window.addEventListener("phosphor:emulators", onProgress);
+  async function update() {
+    sound.play("select");
+    busy(`Updating ${name}…`);
+    try { await api.post("/api/emulators/update", item); } catch (e) { toastError(e); draw(); }
+  }
+  async function rollback() {
+    if (!(await confirmBox(`Go back to ${name} ${info.previous}?`, `Only ${name} changes. You can update it again any time.`, { ok: "Go back" }))) return;
+    busy("Going back…");
+    try {
+      await api.post("/api/emulators/rollback", item);
+      await refreshState().catch(() => {});
+      toast({ title: `Back on ${name} ${info.previous}`, icon: "history", kind: "good" });
+    } catch (e) { toastError(e); }
+    await check();
+  }
+  draw();
+  check();
+  return bar;
 }
 
 export default async function systemView({ params, query }) {
@@ -75,7 +143,6 @@ export default async function systemView({ params, query }) {
   const empty = h("div.empty-state", { hidden: true }, h("h2", "Nothing matches"), h("p", "Try a different search or filter."));
   const searchInput = h("input", { type: "search", placeholder: `Search ${sys.short} games`, value: st.q, oninput: (e) => { st.q = e.target.value; apply(); }, "aria-label": "Search" });
 
-  const ready = sys.emulatorReady;
   const el = h("div", { "--sys": sys.color },
     h("section.sys-hero",
       icon,
@@ -83,12 +150,12 @@ export default async function systemView({ params, query }) {
       h("h1", sys.name),
       h("div.facts",
         h("span.chip.solid", count),
-        sys.native ? h("span.chip", ic("cpu"), store.state.desktop ? (ready ? `Plays in ${sys.nativeName}` : `${sys.nativeName} not installed`) : "Desktop app")
-          : h("span.chip", ic("cpu"), ready ? "Emulator installed" : "Emulator missing"),
+        sys.native && !store.state.desktop ? h("span.chip", ic("cpu"), "Desktop app") : null,
         sys.needs ? h("span.chip", ic(sys.locked ? "lock" : "check"), sys.locked ? sys.needs.chip : "Your files are ready")
           : sys.bios === "yours" ? null : h("span.chip", { title: sys.biosLabel || "" }, ic("check"), { included: "BIOS included", builtin: "BIOS built in", none: "No BIOS needed" }[sys.bios]),
         sys.status === "experimental" ? h("span.chip", { style: { color: "var(--warn)" } }, ic("alert"), "Beta") : null,
         h("span.chip", ic("folder"), `ROMs/${sys.folder}`)),
+      emulatorBar(sys),
       sys.native && !store.state.desktop ? h("div.note.info", { style: { marginTop: "16px", maxWidth: "720px" } }, ic("info"),
         h("div", `${sys.short} games play in the free Phosphor desktop app for Windows, Mac and Linux, which runs ${sys.nativeName} on your computer. You can still add and browse them here.`)) : null,
       sys.note ? h("div.note.info", { style: { marginTop: "16px", maxWidth: "720px" } }, ic("info"), h("div", sys.note)) : null,
