@@ -197,7 +197,9 @@ export const NATIVE = {
       const env = platform === "linux" ? xdg(dataDir) : {};
       copyIfChanged(sysFiles?.keys, path.join(appDataDir(platform, "Cemu", { xdg: env.XDG_DATA_HOME }), "keys.txt"));
       // An existing settings file skips Cemu's first-run assistant.
-      const settings = path.join(appDataDir(platform, "Cemu", { xdg: env.XDG_CONFIG_HOME, kind: "config" }), "settings.xml");
+      const configDir = appDataDir(platform, "Cemu", { xdg: env.XDG_CONFIG_HOME, kind: "config" });
+      writeCemuController(configDir, platform);
+      const settings = path.join(configDir, "settings.xml");
       if (!fs.existsSync(settings)) {
         fs.mkdirSync(path.dirname(settings), { recursive: true });
         fs.writeFileSync(settings, '<?xml version="1.0" encoding="UTF-8"?>\n<content>\n  <check_update>false</check_update>\n  <fullscreen>true</fullscreen>\n</content>\n');
@@ -383,6 +385,37 @@ export async function latestRelease(emu, platform = process.platform) {
 }
 
 // ---- controllers ----
+// Cemu: the Wii U GamePad on the first Xbox-style controller (XInput "0"), using Cemu's own
+// default XInput layout, so a plugged-in pad just works. Written only when the player hasn't set
+// up a controller in Cemu themselves.
+function writeCemuController(configDir, platform) {
+  if (platform !== "win32") return;
+  const file = path.join(configDir, "controllerProfiles", "controller0.xml");
+  try { if (/<controller>/.test(fs.readFileSync(file, "utf8"))) return; } catch { /* not there yet */ }
+  // Wii U button id -> Cemu XInput input (bits of wButtons, then trigger/stick directions).
+  const map = [[1, 13], [2, 12], [3, 15], [4, 14], [5, 8], [6, 9], [7, 42], [8, 43], [9, 4], [10, 5], [11, 0], [12, 1], [13, 2], [14, 3],
+    [15, 6], [16, 7], [17, 39], [18, 45], [19, 44], [20, 38], [21, 41], [22, 47], [23, 46], [24, 40]];
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<emulated_controller>
+\t<type>Wii U GamePad</type>
+\t<controller>
+\t\t<api>XInput</api>
+\t\t<uuid>0</uuid>
+\t\t<display_name>Controller 1</display_name>
+\t\t<rumble>0.5</rumble>
+\t\t<axis><deadzone>0.25</deadzone><range>1</range></axis>
+\t\t<rotation><deadzone>0.25</deadzone><range>1</range></rotation>
+\t\t<trigger><deadzone>0.25</deadzone><range>1</range></trigger>
+\t\t<mappings>
+${map.map(([m, b]) => `\t\t\t<entry><mapping>${m}</mapping><button>${b}</button></entry>`).join("\n")}
+\t\t</mappings>
+\t</controller>
+</emulated_controller>
+`;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, xml);
+}
+
 // Dolphin needs a mapping to know which buttons do what. On Windows every Xbox-style pad is
 // "XInput/0/Gamepad", so a plugged-in controller just works. Positional layout: the GameCube's big
 // A is the bottom face button, B the left one. Only written once; the player's own changes stay.

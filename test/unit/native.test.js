@@ -434,3 +434,25 @@ test("Settings › Graphics reaches the emulators; Open settings starts an emula
   assert.equal(exits[0].failed, false, "closing a settings window quickly isn't a failure");
   fs.rmSync(d, { recursive: true, force: true });
 });
+
+test("Cemu gets a Wii U GamePad profile for the first Xbox-style controller on Windows, once", () => {
+  const d = tmpdir("phosphor-cemu-");
+  const old = process.env.APPDATA;
+  process.env.APPDATA = d;
+  try {
+    catalog.NATIVE.cemu.launch({ game: "/g/Pikmin 3.wua", saveDir: d, dataDir: d, platform: "win32", sysFiles: null });
+    const file = path.join(d, "Cemu", "controllerProfiles", "controller0.xml");
+    const xml = fs.readFileSync(file, "utf8");
+    assert.match(xml, /<type>Wii U GamePad<\/type>/);
+    assert.match(xml, /<api>XInput<\/api>\s*<uuid>0<\/uuid>/);
+    assert.match(xml, /<entry><mapping>1<\/mapping><button>13<\/button><\/entry>/, "Wii U A on the right face button, as Cemu itself maps it");
+    assert.equal((xml.match(/<entry>/g) || []).length, 24);
+    // A profile the player made in Cemu stays as it is.
+    fs.writeFileSync(file, "<emulated_controller><type>Wii U GamePad</type><controller><api>SDLController</api></controller></emulated_controller>");
+    catalog.NATIVE.cemu.launch({ game: "/g/Pikmin 3.wua", saveDir: d, dataDir: d, platform: "win32", sysFiles: null });
+    assert.match(fs.readFileSync(file, "utf8"), /SDLController/);
+  } finally {
+    process.env.APPDATA = old;
+    fs.rmSync(d, { recursive: true, force: true });
+  }
+});

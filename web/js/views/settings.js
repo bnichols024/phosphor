@@ -297,7 +297,7 @@ const AUTO = {
     flycast: "Any controller is set up automatically.", dolphin: "Xbox-style controllers are set up automatically on Windows.",
     pcsx2: "Your first controller is set up as a DualShock 2.", azahar: "Controllers are set up automatically.",
     eden: "Set up your controller once in Eden's settings.", eglantine: "Set up your controller once in Eglantine's settings.",
-    cemu: "Set up your controller once in Cemu's settings.", rpcs3: "Controllers are set up automatically.",
+    cemu: "Xbox-style controllers are set up automatically on Windows.", rpcs3: "Controllers are set up automatically.",
     xemu: "Controllers are set up automatically.", vita3k: "Controllers are set up automatically.", shadps4: "Controllers are set up automatically.", xenia: "Xbox controllers work automatically.",
   },
 };
