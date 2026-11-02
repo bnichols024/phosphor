@@ -294,11 +294,16 @@ async function controls(root) {
 // (stored with your player, so changes apply when Phosphor starts your games).
 const AUTO = {
   controls: {
-    flycast: "Any controller is set up automatically.", dolphin: "Xbox-style controllers are set up automatically on Windows.",
-    pcsx2: "Your first controller is set up as a DualShock 2.", azahar: "Controllers are set up automatically.",
-    eden: "Set up your controller once in Eden's settings.", eglantine: "Set up your controller once in Eglantine's settings.",
-    cemu: "Xbox-style controllers are set up automatically on Windows.", rpcs3: "Controllers are set up automatically.",
-    xemu: "Controllers are set up automatically.", vita3k: "Controllers are set up automatically.", shadps4: "Controllers are set up automatically.", xenia: "Xbox controllers work automatically.",
+    flycast: "Any controller is set up automatically.",
+    dolphin: "Xbox-style controllers are set up automatically on Windows.",
+    pcsx2: "Your first controller is set up as a DualShock 2.",
+    cemu: "Xbox-style controllers are set up automatically on Windows.",
+    rpcs3: "Xbox-style controllers are set up automatically on Windows.",
+    azahar: "Any controller is set up automatically (Nintendo button positions).",
+    eden: "Map your controller once here or in Eglantine (Emulation › Configure › Controls); Phosphor copies it to the other and to every player.",
+    eglantine: "Map your controller once here or in Eden (Emulation › Configure › Controls); Phosphor copies it to the other and to every player.",
+    xemu: "Controllers are set up automatically.", vita3k: "Controllers are set up automatically.",
+    shadps4: "Controllers are set up automatically.", xenia: "Xbox controllers work automatically.",
   },
 };
 function desktopCard(kind) {

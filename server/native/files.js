@@ -68,8 +68,9 @@ export async function detectSystemFiles(files, { exclude = new Set() } = {}) {
 export const SYSTEM_FILE_NAMES = /^(prod\.keys|title\.keys|keys\.txt|ps3updat\.pup|psvupdat\.pup|psp2updat\.pup|mcpx.*\.bin)$/i;
 
 // ---- INI files (PCSX2, ...) ----
-// Sets keys in an INI file, keeping everything else the player configured.
-export function mergeIni(file, values) {
+// Sets keys in an INI file, keeping everything else the player configured. Qt-based emulators
+// (Eden, Azahar) want "key=value" without spaces: pass { sep: "=" }.
+export function mergeIni(file, values, { sep = " = " } = {}) {
   const text = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
   const lines = text.split(/\r?\n/);
   for (const [section, keys] of Object.entries(values)) {
@@ -79,8 +80,8 @@ export function mergeIni(file, values) {
     if (end < 0) end = lines.length;
     for (const [k, v] of Object.entries(keys)) {
       const i = lines.findIndex((l, j) => j > start && j < end && l.split("=")[0].trim() === k);
-      if (i >= 0) lines[i] = `${k} = ${v}`;
-      else { lines.splice(end, 0, `${k} = ${v}`); end++; }
+      if (i >= 0) lines[i] = `${k}${sep}${v}`;
+      else { lines.splice(end, 0, `${k}${sep}${v}`); end++; }
     }
   }
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -104,4 +105,20 @@ export function copyIfChanged(src, dest) {
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.copyFileSync(src, dest);
   } catch { /* the emulator reports what's missing */ }
+}
+
+// The key=value lines of one INI section (values as written, quotes included).
+export function readIniSection(file, section) {
+  let text;
+  try { text = fs.readFileSync(file, "utf8"); } catch { return null; }
+  const out = {};
+  let inside = false;
+  for (const line of text.split(/\r?\n/)) {
+    const t = line.trim();
+    if (/^\[.*\]$/.test(t)) { inside = t === `[${section}]`; continue; }
+    if (!inside || !t || t.startsWith(";") || t.startsWith("#")) continue;
+    const i = line.indexOf("=");
+    if (i > 0) out[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  }
+  return out;
 }

@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { mergeIni, appDataDir, copyIfChanged, readSfo, parseSfo } from "./files.js";
+import { mergeIni, readIniSection, appDataDir, copyIfChanged, readSfo, parseSfo } from "./files.js";
 import { listZip, readZipEntry } from "../lib/zip.js";
 
 const BIOS_DIR = fileURLToPath(new URL("../../bios/", import.meta.url));
@@ -130,14 +130,15 @@ export const NATIVE = {
     },
     exe: { win32: /^rpcs3\.exe$/i, darwin: /^RPCS3\.app$/i, linux: /\.AppImage$/i },
     // Sony's free PS3 system software is installed once (headless mode installs and quits).
-    prepare({ dataDir, sysFiles }) {
+    prepare(ctx) {
+      const { dataDir, sysFiles } = ctx;
       const pup = sysFiles?.firmware;
       if (!pup) return [];
       const marker = doneMarker(dataDir, "ps3-firmware", pup);
-      return fs.existsSync(marker) ? [] : [{ args: ["--headless", "--installfw", pup], marker, env: xdg(dataDir), message: "Installing the PS3 system software (one time)…" }];
+      return fs.existsSync(marker) ? [] : [{ args: ["--headless", "--installfw", pup], marker, env: rpcs3Env(ctx), message: "Installing the PS3 system software (one time)…" }];
     },
-    configure({ dataDir }) { return { args: [], env: xdg(dataDir) }; },
-    launch({ game, dataDir }) { return { args: ["--no-gui", "--fullscreen", game], env: xdg(dataDir) }; },
+    configure(ctx) { return { args: [], env: rpcs3Env(ctx) }; },
+    launch(ctx) { return { args: ["--no-gui", "--fullscreen", ctx.game], env: rpcs3Env(ctx) }; },
   },
 
   shadps4: {
@@ -216,15 +217,10 @@ export const NATIVE = {
       linux: { kind: "gitea", api: "https://git.eden-emu.dev/api/v1", repo: "eden-emu/eden", asset: /^Eden-Linux-v[\d.]+-amd64-gcc-standard\.AppImage$/i },
     },
     exe: { win32: /^eden\.exe$/i, darwin: /^Eden\.app$/i, linux: /\.AppImage$/i },
-    configure(ctx) { return { args: [], env: NATIVE.eden.launch({ ...ctx, game: "" }).env }; },
-    // The player's own console keys go where Eden reads them.
-    launch({ game, dataDir, platform, sysFiles }) {
-      const env = platform === "linux" ? xdg(dataDir) : {};
-      const keys = path.join(appDataDir(platform, "eden", { xdg: env.XDG_DATA_HOME }), "keys");
-      copyIfChanged(sysFiles?.prodKeys, path.join(keys, "prod.keys"));
-      copyIfChanged(sysFiles?.titleKeys, path.join(keys, "title.keys"));
-      return { args: ["-f", "-g", game], env };
-    },
+    configure(ctx) { return { args: [], env: edenFamily(ctx).env }; },
+    // The player's own folder, console keys, and a controller mapping set up once in Eden or
+    // Eglantine (see edenFamily).
+    launch(ctx) { return { args: ["-f", "-g", ctx.game], env: edenFamily(ctx).env }; },
   },
 
   eglantine: {
@@ -236,28 +232,9 @@ export const NATIVE = {
       linux: { kind: "github", repo: "Djihads80/Eglantine", list: true, asset: /^eglantine-[0-9a-f]{40}-linux-x86_64\.AppImage$/i },
     },
     exe: { win32: /^eglantine\.exe$/i, linux: /\.AppImage$/i },
-    // Eglantine shares Eden's "eden" data folder. To keep them apart on Windows it runs in portable
-    // mode (a "user" folder next to the program), linked to the player's own data folder. On Linux
-    // the XDG folders already point at the player's folder.
-    configure(ctx) { return { args: [], env: NATIVE.eglantine.launch({ ...ctx, game: "" }).env }; },
-    launch({ game, dataDir, platform, sysFiles, program }) {
-      const env = platform === "linux" ? xdg(dataDir) : {};
-      let base = appDataDir(platform, "eden", { xdg: env.XDG_DATA_HOME });
-      if (platform === "win32" && program) {
-        const own = path.join(dataDir, "user");
-        fs.mkdirSync(own, { recursive: true });
-        const link = path.join(path.dirname(program), "user");
-        try {
-          try { if (fs.realpathSync(link) !== fs.realpathSync(own)) fs.unlinkSync(link); } catch { /* no link yet */ }
-          if (!fs.existsSync(link)) fs.symlinkSync(own, link, "junction");
-          base = own;
-        } catch { /* install folder not writable: Eglantine uses the shared folder */ }
-      }
-      const keys = path.join(base, "keys");
-      copyIfChanged(sysFiles?.prodKeys, path.join(keys, "prod.keys"));
-      copyIfChanged(sysFiles?.titleKeys, path.join(keys, "title.keys"));
-      return { args: ["-f", "-g", game], env };
-    },
+    // Eglantine shares Eden's "eden" data folder name; edenFamily() keeps them apart.
+    configure(ctx) { return { args: [], env: edenFamily(ctx).env }; },
+    launch(ctx) { return { args: ["-f", "-g", ctx.game], env: edenFamily(ctx).env }; },
   },
 
   azahar: {
@@ -268,8 +245,8 @@ export const NATIVE = {
       linux: { kind: "github", repo: "azahar-emu/azahar", asset: /^azahar\.AppImage$/i },
     },
     exe: { win32: /^azahar(-qt)?\.exe$/i, darwin: /^Azahar\.app$/i, linux: /\.AppImage$/i },
-    configure({ dataDir, platform }) { return { args: [], env: platform === "linux" ? xdg(dataDir) : {} }; },
-    launch({ game, dataDir, platform }) { return { args: ["-f", game], env: platform === "linux" ? xdg(dataDir) : {} }; },
+    configure(ctx) { return { args: [], env: azaharSetup(ctx) }; },
+    launch(ctx) { return { args: ["-f", ctx.game], env: azaharSetup(ctx) }; },
   },
 
   xemu: {
@@ -382,6 +359,110 @@ export async function latestRelease(emu, platform = process.platform) {
     return { version: j.shortrev, url: a.url, file: a.url.split("/").pop(), size: 0 };
   }
   throw new Error(`unknown source ${src.kind}`);
+}
+
+// ---- per-player folders on Windows ----
+// Eden, Eglantine and Azahar switch to "portable" mode when a "user" folder sits next to the
+// program. Phosphor makes that folder a link to the player's own folder, so each player (and each
+// emulator) has separate settings and saves. If the install folder isn't writable, the emulator
+// falls back to its normal shared folder.
+function portableUser(program, dataDir) {
+  if (!program) return null;
+  const own = path.join(dataDir, "user");
+  fs.mkdirSync(own, { recursive: true });
+  const link = path.join(path.dirname(program), "user");
+  try {
+    try { if (fs.realpathSync(link) !== fs.realpathSync(own)) fs.unlinkSync(link); } catch { /* no link yet */ }
+    if (!fs.existsSync(link)) fs.symlinkSync(own, link, "junction");
+    return own;
+  } catch { return null; }
+}
+
+// ---- Eden and Eglantine (Switch, Switch 2) ----
+// Their controller mappings name the exact controller (SDL GUID), which depends on the model and
+// Windows driver, so nothing can be written in advance. Instead: map it once in either emulator,
+// and Phosphor copies that mapping to the other one and to every other player.
+const edenConfigs = (dataDir) => {
+  const root = path.dirname(path.dirname(dataDir)); // <library>/.phosphor/native-data
+  const out = [];
+  for (const emu of ["eden", "eglantine"]) {
+    let players = [];
+    try { players = fs.readdirSync(path.join(root, emu)); } catch { continue; }
+    for (const p of players) {
+      for (const f of [path.join(root, emu, p, "user", "config", "qt-config.ini"), path.join(root, emu, p, "config", "eden", "qt-config.ini")]) {
+        if (fs.existsSync(f)) out.push(f);
+      }
+    }
+  }
+  return out;
+};
+const hasPadMapping = (controls) => /engine:sdl/.test(controls?.player_0_button_a || "");
+
+export function edenFamily({ dataDir, platform, sysFiles, program }) {
+  const env = platform === "linux" ? xdg(dataDir) : {};
+  let base = appDataDir(platform, "eden", { xdg: env.XDG_DATA_HOME });
+  let config = platform === "linux" ? path.join(env.XDG_CONFIG_HOME, "eden") : path.join(base, "config");
+  if (platform === "win32") {
+    const own = portableUser(program, dataDir);
+    if (own) { base = own; config = path.join(own, "config"); }
+  }
+  copyIfChanged(sysFiles?.prodKeys, path.join(base, "keys", "prod.keys"));
+  copyIfChanged(sysFiles?.titleKeys, path.join(base, "keys", "title.keys"));
+  const ini = path.join(config, "qt-config.ini");
+  if (!hasPadMapping(readIniSection(ini, "Controls"))) {
+    // Newest mapping set up anywhere else wins.
+    const source = edenConfigs(dataDir).filter((f) => f !== ini && hasPadMapping(readIniSection(f, "Controls")))
+      .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
+    if (source) {
+      const keys = Object.fromEntries(Object.entries(readIniSection(source, "Controls")).filter(([k]) => k.startsWith("player_0_")));
+      mergeIni(ini, { Controls: keys }, { sep: "=" });
+    }
+  }
+  return { env, base, config };
+}
+
+// ---- Azahar (3DS) ----
+// Azahar can map "any controller" by standard gamepad buttons, so a mapping can be written in
+// advance: Nintendo layout by position (3DS A is the right button = Xbox B). Only when the player
+// hasn't mapped a controller themselves.
+const AZ_BUTTONS = { button_a: 1, button_b: 0, button_x: 3, button_y: 2, button_up: 11, button_down: 12, button_left: 13, button_right: 14,
+  button_l: 9, button_r: 10, button_start: 6, button_select: 4, button_home: 5 };
+function azaharSetup({ dataDir, platform, program }) {
+  const env = platform === "linux" ? xdg(dataDir) : {};
+  let config = null;
+  if (platform === "win32") {
+    const own = portableUser(program, dataDir);
+    config = path.join(own || path.join(process.env.APPDATA || "", "Azahar"), "config");
+  } else if (platform === "linux") config = path.join(env.XDG_CONFIG_HOME, "azahar-emu");
+  if (!config) return env;
+  const ini = path.join(config, "qt-config.ini");
+  const controls = readIniSection(ini, "Controls") || {};
+  const current = controls["profiles\\1\\button_a"] || "";
+  if (!/engine:sdl/.test(current)) {
+    const pad = (rest) => `"engine:sdl,api:controller,maptype:all,${rest}"`;
+    const keys = { profile: "0", "profiles\\size": "1", "profiles\\1\\name": "Default", "profiles\\1\\input_maptype": "2" };
+    for (const [k, b] of Object.entries(AZ_BUTTONS)) keys[`profiles\\1\\${k}`] = pad(`button:${b}`);
+    keys["profiles\\1\\button_zl"] = pad("axis:4,direction:+,threshold:0.5");
+    keys["profiles\\1\\button_zr"] = pad("axis:5,direction:+,threshold:0.5");
+    keys["profiles\\1\\circle_pad"] = pad("axis_x:0,axis_y:1,deadzone:0.1");
+    keys["profiles\\1\\c_stick"] = pad("axis_x:2,axis_y:3,deadzone:0.1");
+    mergeIni(ini, { Controls: keys }, { sep: "=" });
+  }
+  return env;
+}
+
+// ---- RPCS3 (PS3) ----
+// Its own folder per player (RPCS3_CONFIG_DIR on Windows, XDG elsewhere), and on Windows the first
+// Xbox-style controller as player 1 ("XInput Pad #1"); RPCS3 fills in its default XInput layout.
+function rpcs3Env({ dataDir, platform }) {
+  if (platform !== "win32") return xdg(dataDir);
+  const dir = path.join(dataDir, "rpcs3");
+  const input = path.join(dir, "config", "input_configs", "global", "Default.yml");
+  if (!fs.existsSync(input)) {
+    fs.mkdirSync(path.dirname(input), { recursive: true });
+    fs.writeFileSync(input, "Player 1 Input:\n  Handler: XInput\n  Device: XInput Pad #1\n");
+  }
+  return { RPCS3_CONFIG_DIR: `${dir.replace(/\\/g, "/")}/` }; // must end with a slash
 }
 
 // ---- controllers ----

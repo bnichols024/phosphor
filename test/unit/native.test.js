@@ -456,3 +456,33 @@ test("Cemu gets a Wii U GamePad profile for the first Xbox-style controller on W
     fs.rmSync(d, { recursive: true, force: true });
   }
 });
+
+test("Xbox controllers by default: PS3 (XInput profile), 3DS (any controller), Switch (mapped once, shared)", async () => {
+  const { NATIVE, edenFamily } = catalog;
+  const lib = tmpdir("phosphor-pads-");
+  const nd = path.join(lib, ".phosphor", "native-data");
+  const prog = (emu) => { const p = path.join(lib, "bin", emu, `${emu}.exe`); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, ""); return p; };
+  try {
+    // PS3: own folder per player via RPCS3_CONFIG_DIR, player 1 on XInput Pad #1.
+    const r = NATIVE.rpcs3.launch({ game: "/g/x", dataDir: path.join(nd, "rpcs3", "1"), saveDir: lib, platform: "win32" });
+    assert.match(r.env.RPCS3_CONFIG_DIR, /rpcs3\/$/);
+    assert.match(fs.readFileSync(path.join(nd, "rpcs3", "1", "rpcs3", "config", "input_configs", "global", "Default.yml"), "utf8"), /Handler: XInput\n\s+Device: XInput Pad #1/);
+    // 3DS: standard-gamepad mapping for any controller, Nintendo positions.
+    const az = path.join(nd, "azahar", "1");
+    NATIVE.azahar.launch({ game: "/g/x.3ds", dataDir: az, saveDir: lib, platform: "win32", program: prog("azahar") });
+    const azIni = fs.readFileSync(path.join(az, "user", "config", "qt-config.ini"), "utf8");
+    assert.match(azIni, /profiles\\1\\button_a="engine:sdl,api:controller,maptype:all,button:1"/);
+    assert.match(azIni, /profiles\\1\\circle_pad="engine:sdl,api:controller,maptype:all,axis_x:0,axis_y:1,deadzone:0.1"/);
+    // Switch: player 1 maps a pad in Eglantine; Eden and player 2 pick it up.
+    const eg1 = path.join(nd, "eglantine", "1");
+    const egIni = path.join(eg1, "user", "config", "qt-config.ini");
+    fs.mkdirSync(path.dirname(egIni), { recursive: true });
+    fs.writeFileSync(egIni, '[Controls]\nplayer_0_button_a="engine:sdl,port:0,guid:030000005e0400008e02000000007200,button:1"\nplayer_0_button_a\\default=false\nplayer_0_connected=true\n');
+    const ed2 = path.join(nd, "eden", "2");
+    edenFamily({ dataDir: ed2, platform: "win32", program: prog("eden") });
+    const edIni = fs.readFileSync(path.join(ed2, "user", "config", "qt-config.ini"), "utf8");
+    assert.match(edIni, /player_0_button_a="engine:sdl,port:0,guid:030000005e0400008e02000000007200,button:1"/);
+    assert.match(edIni, /player_0_button_a\\default=false/);
+    assert.ok(fs.realpathSync(path.join(lib, "bin", "eden", "user")) === fs.realpathSync(path.join(ed2, "user")), "Eden runs from the player's own folder");
+  } finally { fs.rmSync(lib, { recursive: true, force: true }); }
+});
