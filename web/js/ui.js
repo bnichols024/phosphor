@@ -75,6 +75,10 @@ export function fmtBytes(n) {
 }
 export const plural = (n, word, pl = `${word}s`) => `${n.toLocaleString()} ${n === 1 ? word : pl}`;
 
+// The desktop app's downloads (GitHub Releases; the player page links there too).
+export const DESKTOP_DOWNLOAD = "https://github.com/bnichols024/phosphor/releases/latest";
+export const desktopLink = (cls = "btn.small") => h(`a.${cls}`, { href: DESKTOP_DOWNLOAD, target: "_blank", rel: "noopener", "data-nav": "" }, ic("download"), "Get the desktop app");
+
 // ---------- toasts ----------
 export function toast({ title, text = "", icon: iconName = "info", img = null, kind = "", timeout = 4200 }) {
   let host = $("#toasts");

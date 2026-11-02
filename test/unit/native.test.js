@@ -390,6 +390,23 @@ test("Switch 2 (Eglantine): newest pre-release build, unpacked game folders, its
   assert.equal(mk.title, "Mario Kart World");
   assert.equal(ids.find((i) => i.title === "Old Game").system, "switch");
 
+  // Packed games: Switch or Switch 2 from the NSP's ticket name, or the ID in the file name.
+  const pfs0 = (names) => {
+    const strs = Buffer.from(names.join("\0") + "\0");
+    const b = Buffer.alloc(0x10 + names.length * 0x18 + strs.length + 64);
+    b.write("PFS0", 0); b.writeUInt32LE(names.length, 4); b.writeUInt32LE(strs.length, 8);
+    let off = 0;
+    names.forEach((n, i) => { b.writeUInt32LE(off, 0x10 + i * 0x18 + 0x10); off += n.length + 1; });
+    strs.copy(b, 0x10 + names.length * 0x18);
+    return b;
+  };
+  const sys = async (rel, data) => (await identify(put(rel, data), { gamedb })).system;
+  assert.equal(await sys("packed/Kart.nsp", pfs0(["a1b2c3.cnmt.nca", "0400c3f00006e0000000000000000000.tik", "0400c3f00006e0000000000000000000.cert"])), "switch2");
+  assert.equal(await sys("packed/Odyssey.nsz", pfs0(["0100000000010000000000000000000b.tik"])), "switch");
+  assert.equal(await sys("packed/Donkey Kong Bananza [0400AAAA00001000].xci", "HEAD"), "switch2");
+  assert.equal(await sys("packed/Some Cart.xcz", "HEAD"), "switch", "no ID: Switch");
+  assert.equal(await sys("packed/Kart World.nup", "NUP"), "switch2", ".nup is Eglantine's own format");
+
   // Windows: portable "user" folder next to the program, linked to the player's own folder, so
   // Eglantine never shares Eden's settings; keys go there.
   const prog = path.join(dir, "bin", "eglantine.exe");

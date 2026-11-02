@@ -132,7 +132,7 @@ export const SYSTEMS = [
   {
     id: "switch", name: "Nintendo Switch", short: "Switch", maker: "Nintendo", year: 2017, kind: "console",
     folder: "Switch", aliases: ["switch", "nintendoswitch", "nx"],
-    exts: ["nsp", "xci", "nro"], discExts: [], core: null, cores: [], native: "eden",
+    exts: ["nsp", "xci", "nsz", "xcz", "nro"], discExts: [], core: null, cores: [], native: "eden",
     dats: [], meta: null, thumbs: [],
     color: "#e60012", icon: "handheld-wide", pad: "snes", status: "good", box: 0.62,
     needs: { files: "switch", chip: "Needs keys", label: "your Switch keys", help: "Switch games need the keys from your own Switch (prod.keys, and title.keys if you have it). Drop them into the BIOS folder or onto this window." },
@@ -141,10 +141,10 @@ export const SYSTEMS = [
   {
     id: "switch2", name: "Nintendo Switch 2", short: "Switch 2", maker: "Nintendo", year: 2025, kind: "console",
     folder: "Switch 2", aliases: ["switch2", "ns2", "nx2", "nintendoswitch2"],
-    exts: ["nsp", "xci"], discExts: [], core: null, cores: [], native: "eglantine", folderGames: true,
+    exts: ["nsp", "xci", "nsz", "xcz", "nup"], discExts: [], core: null, cores: [], native: "eglantine", folderGames: true,
     dats: [], meta: null, thumbs: [],
     color: "#ff4554", icon: "handheld-wide", pad: "snes", status: "experimental", box: 0.62,
-    note: "Switch 2 emulation is brand new: Eglantine runs a few games (Mario Kart World among them) and many not at all yet. Use games dumped from your own console as unpacked folders (with exefs/main inside). Without keys from your console, Eglantine asks for them when it starts: choose No and the game still loads. Windows and Linux only for now.",
+    note: "Switch 2 emulation is brand new: Eglantine runs a few games (Mario Kart World among them) and many not at all yet. Use games dumped from your own console: .nsp, .xci, .nup (Eglantine's own format) or unpacked folders with exefs/main inside, zipped or not. A Switch 2 .xci needs its program ID in the file name, like [0400…], to be told from a Switch game. Without keys from your console, Eglantine asks for them when it starts: choose No and the game still loads. Windows and Linux only for now.",
   },
   // ---- Sega ----
   {

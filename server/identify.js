@@ -101,6 +101,26 @@ async function sniffNintendo(file, ext) {
   return gameCubeOrWii(head);
 }
 
+// Switch or Switch 2 for the formats both use (.nsp/.nsz/.xci/.xcz), from the program ID: Switch 2
+// IDs start with 04, Switch ones with 01. An NSP/NSZ is a PFS0 file list whose ticket is named
+// after the rights ID (program ID + key generation); game cards keep theirs encrypted, so for
+// .xci/.xcz only a "[0400…]" ID in the file name tells. Unknown counts as Switch.
+export async function switchGeneration(file, ext, base) {
+  const idOf = (s) => (s.match(/\b(0[14][0-9a-f]{14})\b/i) || [])[1];
+  let id = idOf(base);
+  if (!id && (ext === "nsp" || ext === "nsz")) {
+    const head = await readHead(file, 0x10).catch(() => Buffer.alloc(0));
+    if (head.length === 0x10 && ascii(head, 0, 4) === "PFS0") {
+      const count = head.readUInt32LE(4), strSize = head.readUInt32LE(8);
+      if (count > 0 && count < 4096 && strSize < 1 << 20) {
+        const names = ascii(await readHead(file, strSize, 0x10 + count * 0x18), 0, strSize).split("\0");
+        id = names.map((n) => (n.match(/^([0-9a-f]{16})[0-9a-f]{16}\.(tik|cert)$/i) || [])[1]).find(Boolean);
+      }
+    }
+  }
+  return id && id.startsWith("04") ? "switch2" : "switch";
+}
+
 // The 4-character game code a GameCube/Wii disc starts with (GALE = Melee, USA), wherever the
 // image format keeps its copy of the disc header.
 async function nintendoCode(file, ext) {
@@ -210,6 +230,9 @@ export async function identify(file, { folderSystem = null, gamedb, arcadeHint =
   // 1. Extension that only one system uses.
   if (!system && claim.length === 1) { system = claim[0]; reason = "extension"; }
   else if (claim.length > 1 && folderSystem && claim.includes(folderSystem)) { system = folderSystem; reason = "folder"; }
+
+  // 1b. Switch or Switch 2 (they share .nsp/.nsz/.xci/.xcz).
+  if (!system && ["nsp", "nsz", "xci", "xcz"].includes(ext)) { system = await switchGeneration(file, ext, base); reason = "program id"; }
 
   // 2. Disc formats.
   if (!system && ["cue", "m3u", "ccd", "iso", "img", "bin", "chd", "pbp", "toc", "mds", "cso"].includes(ext)) {

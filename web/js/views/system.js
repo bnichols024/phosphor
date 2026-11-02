@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { store, go, refreshState } from "../store.js";
-import { h, ic, consoleArt, gameCard, plural, emptyState, hexToRgb, toast, toastError, confirmBox } from "../ui.js";
+import { h, ic, consoleArt, gameCard, plural, emptyState, hexToRgb, toast, toastError, confirmBox, desktopLink } from "../ui.js";
 import { sound } from "../sound.js";
 import { folderSheet } from "./library.js";
 
@@ -157,7 +157,8 @@ export default async function systemView({ params, query }) {
         h("span.chip", ic("folder"), `ROMs/${sys.folder}`)),
       emulatorBar(sys),
       sys.native && !store.state.desktop ? h("div.note.info", { style: { marginTop: "16px", maxWidth: "720px" } }, ic("info"),
-        h("div", `${sys.short} games play in the free Phosphor desktop app for Windows, Mac and Linux, which runs ${sys.nativeName} on your computer. You can still add and browse them here.`)) : null,
+        h("div", `${sys.short} games play in the free Phosphor desktop app for Windows, Mac and Linux, which runs ${sys.nativeName} on your computer. You can still add and browse them here.`,
+          h("div", { style: { marginTop: "10px" } }, desktopLink()))) : null,
       sys.note ? h("div.note.info", { style: { marginTop: "16px", maxWidth: "720px" } }, ic("info"), h("div", sys.note)) : null,
       sys.threads && !window.isSecureContext ? h("div.note", { style: { marginTop: "12px", maxWidth: "720px" } }, ic("lock"),
         h("div", `${sys.short} games need a secure connection: open Phosphor with https:// (or http://localhost on the server itself). Every other console works over plain http.`)) : null,

@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { store, go, refreshState } from "../store.js";
-import { h, ic, toast, toastError, sheet, confirmBox, promptBox, timeAgo, plural } from "../ui.js";
+import { h, ic, toast, toastError, sheet, confirmBox, promptBox, timeAgo, plural, desktopLink } from "../ui.js";
 import { sound } from "../sound.js";
 import { updates, watchUpdates } from "../update.js";
 import { ACTIONS, DEFAULTS, POSITIONAL, PAD_BUTTONS, padName, keyName, layoutFor } from "../controls.js";
@@ -309,7 +309,7 @@ const AUTO = {
 };
 function desktopCard(kind) {
   if (!store.state.desktop) {
-    return h("div.card", h("h3", "Desktop emulators"), h("p", "GameCube, Wii, PS2, Switch and the other big consoles run in the Phosphor desktop app, where their controller and graphics settings live."));
+    return h("div.card", h("h3", "Desktop emulators"), h("p", "GameCube, Wii, PS2, Switch and the other big consoles run in the free Phosphor desktop app for Windows, Mac and Linux, where their controller and graphics settings live."), desktopLink());
   }
   const list = store.state.emulators?.native || [];
   return h("div.card", h("h3", "Desktop emulators"),
@@ -535,7 +535,11 @@ async function general(root) {
 // ---------------- About ----------------
 // Desktop app: is there a newer Phosphor, and the button that gets it.
 function updateRow() {
-  if (!updates.available()) return null;
+  // In a browser: where to get the desktop app instead.
+  if (!updates.available()) {
+    return store.state.desktop ? null : h("div.list-item", ic("download"),
+      h("div.grow", h("div.t", "Desktop app"), h("div.d", "Free for Windows, Mac and Linux. Plays GameCube, Wii, PS2, PS3, Switch and the other big consoles too.")), desktopLink());
+  }
   const desc = h("div.d", "");
   const btn = h("button.btn.small", { "data-nav": "" });
   const row = h("div.list-item", ic("download"), h("div.grow", h("div.t", "Updates"), desc), btn);
