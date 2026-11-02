@@ -332,34 +332,91 @@ export function uploadFiles(files) {
 }
 async function runUploads() {
   uploading = true;
-  const panel = h("div.uploads", h("h4", h("span#up-title", "Uploading"), h("span#up-count", "")), h("div.bar", h("i#up-bar")), h("div.file#up-file"));
+  let cancelled = false;
+  let xhr = null;
+  const cancelBtn = h("button.up-cancel", { onclick: () => { cancelled = true; queue.length = 0; xhr?.abort(); } }, "Cancel");
+  const panel = h("div.uploads",
+    h("h4", h("span#up-title", "Adding games"), h("span#up-pct", "")),
+    h("div.bar", h("i#up-bar")),
+    h("div.up-stats", h("span#up-bytes", ""), h("span#up-eta", "")),
+    h("div.file#up-file"),
+    h("div.up-foot", h("span#up-count", ""), cancelBtn));
   document.body.append(panel);
   let done = 0, failed = 0, bytesDone = 0;
-  const totalBytes = () => queue.reduce((a, f) => a + f.file.size, 0) + bytesDone;
-  while (queue.length) {
+  const total = () => queue.reduce((a, f) => a + f.file.size, 0) + bytesDone + (current?.file.size || 0);
+  let current = null;
+  // Speed from the last few seconds, so the estimate settles instead of jumping around.
+  const samples = [];
+  const show = (fileBytes) => {
+    const all = total();
+    const now = bytesDone + fileBytes;
+    const pct = all ? Math.min(100, (now / all) * 100) : 0;
+    $("#up-bar", panel).style.width = `${pct}%`;
+    $("#up-pct", panel).textContent = `${Math.floor(pct)}%`;
+    const t = performance.now();
+    samples.push([t, now]);
+    while (samples.length > 2 && t - samples[0][0] > 4000) samples.shift();
+    const [t0, b0] = samples[0];
+    const speed = t - t0 > 500 ? ((now - b0) / (t - t0)) * 1000 : 0;
+    $("#up-bytes", panel).textContent = `${fmtBytes(now)} of ${fmtBytes(all)}`;
+    const left = speed > 0 ? (all - now) / speed : 0;
+    $("#up-eta", panel).textContent = speed > 0 ? `${fmtBytes(speed)}/s · ${left < 60 ? `${Math.max(1, Math.round(left))} s` : `${Math.round(left / 60)} min`} left` : "";
+  };
+  while (queue.length && !cancelled) {
     const item = queue.shift();
+    current = item;
     $("#up-file", panel).textContent = item.path;
-    $("#up-count", panel).textContent = `${done + 1} of ${done + queue.length + 1}`;
+    $("#up-count", panel).textContent = `File ${done + failed + 1} of ${done + failed + queue.length + 1}`;
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    // The server reports what it has really written; the browser's own number is only a fallback.
+    let serverBytes = 0, clientBytes = 0;
+    const poll = setInterval(async () => {
+      try {
+        const r = await api.get(`/api/upload/progress?id=${encodeURIComponent(id)}`);
+        serverBytes = Math.max(serverBytes, r.written || 0);
+        show(serverBytes);
+      } catch { /* next tick */ }
+    }, 400);
     try {
       await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("PUT", `/api/upload?path=${encodeURIComponent(item.path)}`);
+        xhr = new XMLHttpRequest();
+        xhr.open("PUT", `/api/upload?id=${encodeURIComponent(id)}&path=${encodeURIComponent(item.path)}`);
         if (getProfile()) xhr.setRequestHeader("x-profile", String(getProfile()));
-        xhr.upload.onprogress = (ev) => { $("#up-bar", panel).style.width = `${Math.min(100, ((bytesDone + ev.loaded) / Math.max(1, totalBytes())) * 100)}%`; };
+        xhr.upload.onprogress = (ev) => { clientBytes = ev.loaded; if (!serverBytes) show(Math.min(clientBytes, item.file.size * 0.02)); };
         xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error(xhr.responseText)));
         xhr.onerror = () => reject(new Error("network error"));
+        xhr.onabort = () => reject(new Error("cancelled"));
         xhr.send(item.file);
       });
       done++;
-    } catch { failed++; }
+    } catch { if (!cancelled) failed++; }
+    clearInterval(poll);
     bytesDone += item.file.size;
+    current = null;
+    show(0);
   }
-  $("#up-title", panel).textContent = failed ? `${done} uploaded, ${failed} failed` : `Uploaded ${plural(done, "file")} (${fmtBytes(bytesDone)})`;
-  $("#up-file", panel).textContent = "Sorting them into your library…";
-  $("#up-bar", panel).style.width = "100%";
-  api.post("/api/library/scan").catch(() => {});
-  setTimeout(() => panel.remove(), 3500);
+  cancelBtn.remove();
+  $("#up-eta", panel).textContent = "";
+  if (cancelled) {
+    $("#up-title", panel).textContent = done ? `Stopped after ${plural(done, "file")}` : "Upload cancelled";
+    $("#up-file", panel).textContent = done ? "Sorting the finished ones into your library…" : "";
+  } else {
+    $("#up-title", panel).textContent = failed ? `${done} added, ${failed} failed` : `Copied ${plural(done, "file")}`;
+    $("#up-file", panel).textContent = "Sorting them into your library…";
+    $("#up-bar", panel).style.width = "100%";
+    $("#up-pct", panel).textContent = "100%";
+  }
+  $("#up-count", panel).textContent = "";
   uploading = false;
+  if (!done) { setTimeout(() => panel.remove(), 2500); return; }
+  // Say where the games went once the library has sorted them.
+  try {
+    const scan = await api.post("/api/library/scan?wait=1");
+    const added = scan?.added ?? 0;
+    $("#up-title", panel).textContent = added ? `Added ${plural(added, "game")}` : scan?.unknown?.length ? "Copied, but not recognised" : "Copied: already in your library";
+    $("#up-file", panel).textContent = added ? "They're in your library now." : scan?.unknown?.length ? "They're still in the drop folder (see Settings › Library)." : "Nothing new to add.";
+  } catch { /* the library event toast covers it */ }
+  setTimeout(() => panel.remove(), 5000);
 }
 
 // ---------- attract mode (screensaver) ----------

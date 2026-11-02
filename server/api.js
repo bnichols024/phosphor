@@ -758,14 +758,34 @@ export function buildApi(ctx) {
 
   // ---- library management ----
   r.post("/api/library/scan", (req, res) => {
-    const full = new URL(req.url, "http://x").searchParams.get("full") === "1";
-    library.scan({ reason: full ? "re-check everything" : "manual", full });
+    const q = new URL(req.url, "http://x").searchParams;
+    const full = q.get("full") === "1";
+    const scan = library.scan({ reason: full ? "re-check everything" : q.get("wait") ? "added files" : "manual", full });
+    // ?wait=1: answer when it's done, with what it found (used after adding games).
+    if (q.get("wait")) return scan.then((r) => json(res, 200, { ok: true, added: r?.added ?? 0, sorted: r?.sorted ?? 0, unknown: library.status.unknown || [] }));
     json(res, 202, { ok: true });
   });
   r.get("/api/library/status", (req, res) => json(res, 200, library.status));
 
+  // Upload progress as the server sees it: bytes actually written to disk. (A browser reports a
+  // file as "sent" once it has read it, which for a big file on this computer is long before it's
+  // saved, so its own progress jumps to 100% and then sits there.)
+  const uploads = new Map(); // id -> { written, total, at }
+  r.get("/api/upload/progress", (req, res) => {
+    const id = new URL(req.url, "http://x").searchParams.get("id");
+    const u = uploads.get(id);
+    json(res, 200, u ? { written: u.written, total: u.total, done: !!u.done } : { written: 0, total: 0, done: false });
+  });
   r.put("/api/upload", async (req, res) => {
     const q = new URL(req.url, "http://x").searchParams;
+    const id = String(q.get("id") || "").slice(0, 64);
+    const track = id ? { written: 0, total: Number(req.headers["content-length"]) || 0, at: Date.now() } : null;
+    if (track) {
+      uploads.set(id, track);
+      req.on("data", (c) => { track.written += c.length; });
+    }
+    const forget = () => { if (track) { track.done = true; setTimeout(() => uploads.delete(id), 60000); } };
+    req.on("close", forget);
     const rel = String(q.get("path") || q.get("name") || "").replace(/\\/g, "/");
     const parts = rel.split("/").filter((p) => p && p !== "." && p !== ".." && !p.startsWith("."));
     if (!parts.length) throw new HttpError(400, "Missing file name.");
