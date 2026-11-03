@@ -4,7 +4,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import zlib from "node:zlib";
-import { BY_ID, EXT_INDEX, SYSTEMS } from "./systems.js";
+import { BY_ID, EXT_INDEX, SYSTEMS, AMBIGUOUS_EXTS } from "./systems.js";
 import { listZip, readZipEntry } from "./lib/zip.js";
 import { parseName, normTitle } from "./gamedb.js";
 
@@ -313,12 +313,13 @@ export async function identify(file, { folderSystem = null, gamedb, arcadeHint =
     if (fs_ && (ext === "zip" || ext === "7z" || fs_.exts.includes(ext) || (fs_.discExts || []).includes(ext))) { system = folderSystem; reason = "folder"; }
   }
 
-  // 6. Extensions several computers share (.d64 is C64, C128, VIC-20, Plus/4 or PET): a known
-  // checksum decides, otherwise the most common machine (listed first) gets it.
+  // 6. Extensions several systems share (.d64 is C64, C128, VIC-20, Plus/4 or PET): a known
+  // checksum decides, otherwise the most common machine (listed first) gets it. Generic ones
+  // (.bin, .rom...) only by checksum: an unknown .bin is far more likely something else.
   if (!system && claim.length > 1) {
     if (st.size <= MAX_HASH) { crc = await crcFile(file); system = claim.find((id) => gamedb.byCrc(id, crc)) || null; }
-    system ||= claim[0];
-    reason = "extension";
+    if (!system && !AMBIGUOUS_EXTS.has(ext)) system = claim[0];
+    if (system) reason = crc && gamedb.byCrc(system, crc) ? "checksum" : "extension";
   }
   if (!system) return null;
   if (isCompanionOnly(ext) && BY_ID[system]?.disc) {

@@ -28,7 +28,9 @@ const j = async (url, opts = {}) => {
 test("fresh install has a player, every console and the folder layout", async () => {
   const { body } = await j("/api/state");
   assert.equal(body.profiles.length, 1);
-  assert.equal(body.systems.length, 48, "48 consoles: every console whose BIOS is included or not needed, plus the desktop ones");
+  assert.equal(body.systems.length, 53, "53 consoles: every console whose BIOS is included or not needed, plus the desktop ones (5 of them in RetroArch)");
+  assert.ok(["vectrex", "pokemini", "msx", "atarist", "atari800"].every((id) => body.systems.some((s) => s.id === id)), "RetroArch consoles that need no BIOS of yours are shown");
+  assert.ok(["intellivision", "odyssey2", "channelf", "fds", "neogeocd"].every((id) => body.hiddenSystems.some((s) => s.id === id)), "the ones that do wait for it");
   assert.match(body.systems.find((s) => s.id === "snes").photo, /^\/img\/controllers\/snes\.webp/, "real controller photo");
   assert.ok(fs.existsSync(path.join(root, "ROMs", "SNES")));
   assert.ok(fs.existsSync(path.join(root, "Drop Games Here")));

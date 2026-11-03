@@ -551,3 +551,69 @@ test("Windows per-player folders: old shared data carries over, PS3 firmware rei
     fs.rmSync(lib, { recursive: true, force: true });
   }
 });
+
+test("RetroArch: newest stable build plus one core per console, its own config and system folder", async () => {
+  const { NATIVE, RA_CORES, latestRelease, retroarchSetup } = catalog;
+  const cores = [...new Set(Object.values(RA_CORES))];
+  const hits = [];
+  const bb = http.createServer((req, res) => {
+    hits.push(req.url);
+    if (req.url === "/stable/") return res.end('<a href="/stable/1.9.0/">1.9.0</a> <a href="/stable/1.22.2/">1.22.2</a> <a href="/stable/1.21.0/">1.21.0</a>');
+    if (req.url === "/stable/1.22.2/linux/x86_64/RetroArch.7z") return res.end(makeZip({ "RetroArch-Linux-x86_64/RetroArch-Linux-x86_64.AppImage": "#!/bin/sh\n" }));
+    const m = req.url.match(/^\/nightly\/linux\/x86_64\/latest\/([a-z0-9]+)_libretro\.so\.zip$/);
+    if (m && cores.includes(m[1])) return res.end(makeZip({ [`${m[1]}_libretro.so`]: `core ${m[1]}` }));
+    res.statusCode = 404; res.end();
+  });
+  await new Promise((r) => bb.listen(0, "127.0.0.1", r));
+  const old = process.env.PHOSPHOR_BUILDBOT;
+  process.env.PHOSPHOR_BUILDBOT = `http://127.0.0.1:${bb.address().port}`;
+  const root = tmpdir("phosphor-ra-");
+  try {
+    assert.deepEqual(NATIVE.retroarch.systems.sort(), Object.keys(RA_CORES).sort());
+    const rel = await latestRelease(NATIVE.retroarch, "linux");
+    assert.equal(rel.version, "1.22.2", "newest by number, not by text (1.22 > 1.9)");
+    assert.equal(rel.extras.length, cores.length);
+    const mac = await latestRelease(NATIVE.retroarch, "darwin");
+    assert.equal(mac.extras.length, cores.length * 2, "a Mac gets Intel and Apple-chip cores");
+    const n = new NativeEmulators({ bundledDir: path.join(root, "b"), userDir: path.join(root, "u"), platform: "linux", log: {} });
+    const m = await n.install("retroarch", rel, { root: path.join(root, "b") });
+    const dir = path.join(root, "b", "retroarch", "1.22.2");
+    assert.match(m.exe, /RetroArch-Linux-x86_64\.AppImage$/);
+    for (const c of cores) assert.equal(fs.readFileSync(path.join(dir, "cores", `${c}_libretro.so`), "utf8"), `core ${c}`);
+
+    // Launch: the console's core, a config of the player's own, saves in Phosphor's folder.
+    const data = path.join(root, "data"), saves = path.join(root, "saves");
+    const program = n.exePath("retroarch");
+    const tos = path.join(root, "mytos.img");
+    fs.writeFileSync(tos, "my own TOS");
+    const r = NATIVE.retroarch.launch({ game: "/g/Game.st", system: "atarist", dataDir: data, saveDir: saves, program, platform: "linux",
+      biosFiles: [{ name: "tos.img", file: tos }], graphics: { fps: true, vsync: false } });
+    assert.deepEqual(r.args.slice(0, 3), ["-f", "--config", path.join(data, "retroarch.cfg")]);
+    assert.equal(r.args[4], path.join(dir, "cores", "hatari_libretro.so"));
+    assert.equal(r.args[5], "/g/Game.st");
+    const cfg = fs.readFileSync(path.join(data, "retroarch.cfg"), "utf8");
+    assert.match(cfg, new RegExp(`savefile_directory = "${saves.replace(/[\\/]/g, ".")}"`));
+    assert.match(cfg, /input_quit_gamepad_combo = "4"/);
+    assert.match(cfg, /fps_show = "true"/);
+    assert.equal(fs.readFileSync(path.join(data, "system", "tos.img"), "utf8"), "my own TOS", "the player's TOS wins over EmuTOS");
+    assert.ok(fs.existsSync(path.join(data, "system", "Machines", "MSX2+ - C-BIOS", "cbios_main_msx2+.rom")), "C-BIOS for MSX");
+    // Settings the player changed in RetroArch stay; Phosphor's own keys are kept up to date.
+    fs.appendFileSync(path.join(data, "retroarch.cfg"), 'video_shader_enable = "true"\n');
+    retroarchSetup({ system: "msx", dataDir: data, saveDir: saves, program, platform: "linux" });
+    const cfg2 = fs.readFileSync(path.join(data, "retroarch.cfg"), "utf8");
+    assert.match(cfg2, /video_shader_enable = "true"/);
+    assert.equal((cfg2.match(/^system_directory =/gm) || []).length, 1);
+    // A player without their own TOS gets EmuTOS.
+    const data2 = path.join(root, "data2");
+    retroarchSetup({ system: "atarist", dataDir: data2, saveDir: saves, program, platform: "linux" });
+    assert.equal(fs.statSync(path.join(data2, "system", "tos.img")).size, 196608, "EmuTOS 192k");
+    // Neo Geo CD looks in a "neocd" folder.
+    const lo = path.join(root, "000-lo.lo"); fs.writeFileSync(lo, "lo");
+    retroarchSetup({ system: "neogeocd", dataDir: data, saveDir: saves, program, platform: "linux", biosFiles: [{ name: "000-lo.lo", file: lo }, { name: "neocd_f.rom", file: null }] });
+    assert.ok(fs.existsSync(path.join(data, "system", "neocd", "000-lo.lo")));
+  } finally {
+    process.env.PHOSPHOR_BUILDBOT = old;
+    bb.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

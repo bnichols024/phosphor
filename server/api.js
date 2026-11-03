@@ -462,6 +462,7 @@ export function buildApi(ctx) {
     try {
       out = await runner.start({
         emulatorId: sys.native, gameId: g.id, profileId: profile.id, game, dataDir, sysFiles: bios[sys.id]?.paths || null,
+        system: sys.id, biosFiles: bios[sys.id]?.files || null,
         graphics: desktopGraphics(profile),
         onStep: (message) => bus.emit("native", { running: false, preparing: true, gameId: g.id, message }),
         saveDir: path.join(library.savesDir, safeProfile, emu.saveFolder),
@@ -488,6 +489,7 @@ export function buildApi(ctx) {
     try {
       const out = await runner.start({
         emulatorId: emuId, configure: true, profileId: profile.id, game: null, sysFiles: bios[sysId]?.paths || null, graphics: desktopGraphics(profile),
+        system: sysId, biosFiles: bios[sysId]?.files || null,
         saveDir: path.join(library.savesDir, safeProfile, emu.saveFolder),
         dataDir: path.join(paths.internal, "native-data", emuId, String(profile.id)),
       });

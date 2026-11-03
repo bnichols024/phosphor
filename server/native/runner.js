@@ -33,9 +33,10 @@ export class NativeRunner {
   }
 
   // emulatorId, game (absolute path), saveDir (player's save folder), dataDir (emulator settings),
-  // sysFiles (the player's BIOS/keys/firmware paths for this console).
+  // sysFiles (the player's BIOS/keys/firmware paths for this console), system (the console's id,
+  // for emulators that play several), biosFiles (its BIOS files as found: [{ name, file }]).
   // configure: open the emulator's own settings window instead of a game (no play time recorded).
-  async start({ emulatorId, game, saveDir, dataDir, gameId = null, profileId, sysFiles = null, graphics = null, configure = false, onStep = () => {} }) {
+  async start({ emulatorId, game, saveDir, dataDir, gameId = null, profileId, sysFiles = null, system = null, biosFiles = null, graphics = null, configure = false, onStep = () => {} }) {
     if (this.current || this.preparing) throw Object.assign(new Error(`${NATIVE[(this.current || this.preparing).emulator].name} is already running a game. Close it first.`), { status: 409 });
     const emu = NATIVE[emulatorId];
     const exe = this.native.exePath(emulatorId);
@@ -43,7 +44,7 @@ export class NativeRunner {
     fs.mkdirSync(saveDir, { recursive: true });
     fs.mkdirSync(dataDir, { recursive: true });
     const program = programPath(exe);
-    const ctx = { game, saveDir, dataDir, platform: this.native.platform, sysFiles, program, graphics };
+    const ctx = { game, saveDir, dataDir, platform: this.native.platform, sysFiles, system, biosFiles, program, graphics };
     if (configure && !emu.configure) throw Object.assign(new Error(`${emu.name} has no settings window to open.`), { status: 400 });
     this.preparing = { emulator: emulatorId };
     let args, env;

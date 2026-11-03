@@ -97,6 +97,16 @@ export class NativeEmulators {
       onProgress(`Unpacking ${emu.name}`);
       await extract(archive, staging, rel.file);
       await fsp.rm(archive, { force: true });
+      // Further downloads unpacked into a subfolder (RetroArch's cores).
+      for (const [i, x] of (rel.extras || []).entries()) {
+        onProgress(`Downloading ${emu.name}: ${x.file.replace(/_libretro.*$/, "")} (${i + 1} of ${rel.extras.length})`);
+        const into = path.join(staging, x.into || "");
+        const file = path.join(staging, `.download-${x.file}`);
+        await fsp.mkdir(into, { recursive: true });
+        await downloadToFile(x.url, file);
+        await extract(file, into, x.file);
+        await fsp.rm(file, { force: true });
+      }
       const exe = findExe(staging, emu.exe[this.platform]);
       if (!exe) throw new Error(`${emu.name} download didn't contain the program.`);
       if (this.platform !== "win32" && !exe.endsWith(".app")) await fsp.chmod(path.join(staging, exe), 0o755).catch(() => {});

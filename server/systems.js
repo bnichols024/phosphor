@@ -518,6 +518,112 @@ export const SYSTEMS = [
     color: "#10b981", icon: "computer", pad: "cpc", status: "great", box: 0.72,
     builtinBios: "CPC ROMs included with Caprice32",
   },
+
+  // ---- desktop extras: played in RetroArch (desktop app), one libretro core each (RA_CORES in native/catalog.js) ----
+  // No EmulatorJS core exists for these, so they need the desktop app. Free BIOS replacements
+  // (C-BIOS, EmuTOS) ship in bios/retroarch; the rest stay hidden until the player's BIOS is there.
+  {
+    id: "vectrex", name: "GCE Vectrex", short: "Vectrex", maker: "GCE", year: 1982, kind: "console",
+    folder: "Vectrex", aliases: ["vectrex", "gcevectrex"],
+    exts: ["vec", "gam", "bin"], core: null, cores: [], native: "retroarch",
+    dats: [NOINTRO("GCE - Vectrex")], meta: "GCE - Vectrex", thumbs: ["GCE - Vectrex"],
+    color: "#e11d48", icon: "joystick", pad: "atari", status: "great", box: 0.72,
+    builtinBios: "Vectrex BIOS built into vecx",
+  },
+  {
+    id: "pokemini", name: "Nintendo Pokémon mini", short: "Pokémon mini", maker: "Nintendo", year: 2001, kind: "handheld",
+    folder: "Pokemon mini", aliases: ["pokemini", "pokemonmini", "pmini"],
+    exts: ["min"], core: null, cores: [], native: "retroarch",
+    dats: [NOINTRO("Nintendo - Pokemon Mini")], meta: "Nintendo - Pokemon Mini", thumbs: ["Nintendo - Pokemon Mini"],
+    color: "#38bdf8", icon: "gb", pad: "gb", status: "great", box: 0.72,
+    builtinBios: "Free Pokémon mini BIOS built into PokeMini",
+    bios: { required: false, files: [{ name: "bios.min", md5: "1e4fb124a3a886865acb574f388c803d", label: "Pokémon mini BIOS (optional)" }] },
+  },
+  {
+    id: "msx", name: "MSX / MSX2", short: "MSX", maker: "Microsoft / ASCII", year: 1983, kind: "computer",
+    folder: "MSX", aliases: ["msx", "msx1", "msx2", "msx2plus"],
+    exts: ["mx1", "mx2", "ri", "dsk", "cas", "rom"], core: null, cores: [], native: "retroarch",
+    dats: [NOINTRO("Microsoft - MSX"), NOINTRO("Microsoft - MSX2")], meta: "Microsoft - MSX", thumbs: ["Microsoft - MSX", "Microsoft - MSX2"],
+    color: "#a3e635", icon: "computer", pad: "c64", status: "great", box: 0.72,
+    includedBios: [{ name: "Machines", file: "retroarch/Machines", label: "C-BIOS (free MSX BIOS, BSD license)" }],
+    note: "Cartridge games run on C-BIOS, a free MSX BIOS that comes with Phosphor. Disk and tape games need a real MSX BIOS, which C-BIOS can't replace.",
+  },
+  {
+    id: "atarist", name: "Atari ST", short: "Atari ST", maker: "Atari", year: 1985, kind: "computer",
+    folder: "Atari ST", aliases: ["atarist", "st", "atari-st", "ste"],
+    exts: ["st", "msa", "stx", "dim", "ipf"], core: null, cores: [], native: "retroarch",
+    dats: [NOINTRO("Atari - ST")], meta: "Atari - ST", thumbs: ["Atari - ST"],
+    color: "#94a3b8", icon: "computer", pad: "amiga", status: "good", box: 0.72,
+    includedBios: [{ name: "tos.img", file: "retroarch/tos.img", label: "EmuTOS 1.4 (free Atari TOS, GPL)" }],
+    bios: { required: false, files: [{ name: "tos.img", md5: "c1c57ce48e8ee4135885cee9e63a68a2", label: "Atari TOS (optional; EmuTOS is used otherwise)" }] },
+  },
+  {
+    id: "atari800", name: "Atari 8-bit (400/800/XL/XE)", short: "Atari 800", maker: "Atari", year: 1979, kind: "computer",
+    folder: "Atari 800", aliases: ["atari800", "atari8bit", "atarixl", "atarixe", "a800"],
+    exts: ["atr", "xfd", "atx", "dcm", "cas", "xex", "car", "com"], core: null, cores: [], native: "retroarch",
+    dats: [NOINTRO("Atari - 8-bit Family")], meta: "Atari - 8-bit Family", thumbs: ["Atari - 8-bit Family"],
+    color: "#f59e0b", icon: "computer", pad: "atari", status: "good", box: 0.72,
+    builtinBios: "Free Altirra OS built into Atari800",
+    bios: { required: false, files: [
+      { name: "ATARIXL.ROM", md5: "06daac977823773a3eea3422fd26a703", label: "Atari XL/XE OS (optional)" },
+      { name: "ATARIBAS.ROM", md5: "0bac0c6a50104045d902df4503a4c30b", label: "Atari BASIC (optional)" },
+    ] },
+  },
+  {
+    id: "intellivision", name: "Mattel Intellivision", short: "Intellivision", maker: "Mattel", year: 1979, kind: "console",
+    folder: "Intellivision", aliases: ["intellivision", "intv"],
+    exts: ["int", "itv", "bin", "rom"], core: null, cores: [], native: "retroarch",
+    dats: [NOINTRO("Mattel - Intellivision")], meta: "Mattel - Intellivision", thumbs: ["Mattel - Intellivision"],
+    color: "#b45309", icon: "joystick", pad: "coleco", status: "good", box: 0.72,
+    bios: { required: true, files: [
+      { name: "exec.bin", md5: "62e761035cb657903761800f4437b8af", label: "Intellivision Executive ROM" },
+      { name: "grom.bin", md5: "0cd5946c6473e42e8e4c2137785e427f", label: "Intellivision Graphics ROM" },
+    ] },
+  },
+  {
+    id: "odyssey2", name: "Magnavox Odyssey² / Videopac", short: "Odyssey²", maker: "Magnavox / Philips", year: 1978, kind: "console",
+    folder: "Odyssey2", aliases: ["odyssey2", "o2", "videopac"],
+    exts: ["bin"], core: null, cores: [], native: "retroarch",
+    dats: [NOINTRO("Magnavox - Odyssey2")], meta: "Magnavox - Odyssey2", thumbs: ["Magnavox - Odyssey2"],
+    color: "#64748b", icon: "joystick", pad: "atari", status: "good", box: 0.72,
+    bios: { required: true, files: [{ name: "o2rom.bin", md5: "562d5ebf9e030a40d6fabfc2f33139fd", label: "Odyssey² BIOS" }] },
+  },
+  {
+    id: "channelf", name: "Fairchild Channel F", short: "Channel F", maker: "Fairchild", year: 1976, kind: "console",
+    folder: "Channel F", aliases: ["channelf", "fairchild", "chf"],
+    exts: ["chf", "bin"], core: null, cores: [], native: "retroarch",
+    dats: [NOINTRO("Fairchild - Channel F")], meta: "Fairchild - Channel F", thumbs: ["Fairchild - Channel F"],
+    color: "#a16207", icon: "joystick", pad: "atari", status: "good", box: 0.72,
+    bios: { required: true, files: [
+      { name: "sl31253.bin", md5: "ac9804d4c0e9d07e33472e3726ed15c3", label: "Channel F BIOS (SL31253)" },
+      { name: "sl31254.bin", md5: "da98f4bb3242ab80d76629021bb27585", label: "Channel F BIOS (SL31254)" },
+    ] },
+  },
+  {
+    id: "fds", name: "Famicom Disk System", short: "Famicom Disk", maker: "Nintendo", year: 1986, kind: "console",
+    folder: "Famicom Disk System", aliases: ["fds", "famicomdisk", "famicomdisksystem"],
+    exts: ["fds"], core: null, cores: [], native: "retroarch",
+    dats: [NOINTRO("Nintendo - Family Computer Disk System")], meta: "Nintendo - Family Computer Disk System", thumbs: ["Nintendo - Family Computer Disk System"],
+    color: "#dc2626", icon: "disc", pad: "nes", status: "great", box: 0.72,
+    bios: { required: true, files: [{ name: "disksys.rom", md5: "ca30b50f880eb660a320674ed365ef7a", label: "Famicom Disk System BIOS" }] },
+  },
+  {
+    id: "neogeocd", name: "Neo Geo CD", short: "Neo Geo CD", maker: "SNK", year: 1994, kind: "console",
+    folder: "Neo Geo CD", aliases: ["neogeocd", "ngcd"],
+    exts: [], discExts: ["cue", "chd"], core: null, cores: [], native: "retroarch",
+    dats: [REDUMP("SNK - Neo Geo CD")], disc: true, meta: "SNK - Neo Geo CD", thumbs: ["SNK - Neo Geo CD"],
+    color: "#2563eb", icon: "disc", pad: "arcade", status: "good", box: 1,
+    // NeoCD needs a CD BIOS and the zoom ROM, in a "neocd" folder of RetroArch's system folder.
+    bios: { required: true, raFolder: "neocd", files: [
+      { name: "neocd_f.rom", md5: null, label: "Neo Geo CD front-loader BIOS" },
+      { name: "neocd_t.rom", md5: null, label: "Neo Geo CD top-loader BIOS" },
+      { name: "neocd_z.rom", md5: null, label: "Neo Geo CDZ BIOS" },
+      { name: "front-sp1.bin", md5: null, label: "Neo Geo CD front-loader BIOS (MAME name)" },
+      { name: "top-sp1.bin", md5: null, label: "Neo Geo CD top-loader BIOS (MAME name)" },
+      { name: "neocd.bin", md5: null, label: "Neo Geo CDZ BIOS (MAME name)" },
+      { name: "000-lo.lo", md5: null, label: "Neo Geo zoom ROM (needed with any of the above)" },
+    ] },
+  },
 ];
 
 export const BY_ID = Object.fromEntries(SYSTEMS.map((s) => [s.id, s]));

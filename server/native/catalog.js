@@ -25,6 +25,12 @@ const DOLPHIN_FEED = () => process.env.PHOSPHOR_DOLPHIN_FEED || "https://dolphin
 // A config value for Flycast's -config option; quotes keep paths with ":" or spaces intact.
 const fcVal = (v) => `"${String(v).replace(/"/g, "")}"`;
 
+// RetroArch's consoles (the desktop extras) and the libretro core each one uses.
+export const RA_CORES = {
+  vectrex: "vecx", pokemini: "pokemini", msx: "bluemsx", atarist: "hatari", atari800: "atari800",
+  intellivision: "freeintv", odyssey2: "o2em", channelf: "freechaf", fds: "fceumm", neogeocd: "neocd",
+};
+
 export const NATIVE = {
   flycast: {
     id: "flycast", name: "Flycast", systems: ["dreamcast"], saveFolder: "Dreamcast", license: "GPL-2.0", home: "https://github.com/flyinghead/flycast",
@@ -293,7 +299,92 @@ export const NATIVE = {
     exe: { win32: /^xenia_canary\.exe$/i },
     launch({ game }) { return { args: [game, "--fullscreen=true"], env: {} }; },
   },
+
+  // Consoles no in-browser core covers (Vectrex, MSX, Atari ST...), one libretro core each.
+  retroarch: {
+    id: "retroarch", name: "RetroArch", systems: Object.keys(RA_CORES), saveFolder: "RetroArch", license: "GPL-3.0", home: "https://www.retroarch.com",
+    // The program from the stable builds, each console's core from the nightly ones (stable has no
+    // single-core downloads). A Mac app runs on Intel and Apple chips, so it gets both cores.
+    sources: {
+      win32: { kind: "buildbot", path: "windows/x86_64", file: "RetroArch.7z", cores: [{ dir: "windows/x86_64", ext: "dll", into: "cores" }] },
+      darwin: { kind: "buildbot", path: "apple/osx/universal", file: "RetroArch_Metal.dmg", cores: [
+        { dir: "apple/osx/arm64", ext: "dylib", into: "cores/arm64" }, { dir: "apple/osx/x86_64", ext: "dylib", into: "cores/x86_64" }] },
+      linux: { kind: "buildbot", path: "linux/x86_64", file: "RetroArch.7z", cores: [{ dir: "linux/x86_64", ext: "so", into: "cores" }] },
+    },
+    exe: { win32: /^retroarch\.exe$/i, darwin: /^RetroArch\.app$/i, linux: /\.AppImage$/i },
+    graphics: ["fps", "vsync"],
+    configure(ctx) { const s = retroarchSetup({ ...ctx, system: ctx.system || "vectrex" }); return { args: ["--config", s.cfg], env: {} }; },
+    launch(ctx) { const s = retroarchSetup(ctx); return { args: ["-f", "--config", s.cfg, "-L", s.core, ctx.game], env: {} }; },
+  },
 };
+
+// ---- RetroArch ----
+// Cores that look for their BIOS in a folder of RetroArch's system folder.
+const RA_BIOS_FOLDER = { neogeocd: "neocd" };
+const RA_CORE_EXT = { win32: "dll", darwin: "dylib", linux: "so" };
+
+// The install folder (the one with manifest.json) above the program, wherever the program sits
+// inside it (a subfolder on Windows and Linux, deep inside RetroArch.app on a Mac).
+function installRoot(program) {
+  let dir = path.dirname(program);
+  for (let i = 0; i < 6 && !fs.existsSync(path.join(dir, "manifest.json")); i++) dir = path.dirname(dir);
+  return fs.existsSync(path.join(dir, "manifest.json")) ? dir : path.dirname(program);
+}
+
+function copyTree(src, dest, skip = new Set(), rel = "") {
+  let entries = [];
+  try { entries = fs.readdirSync(path.join(src, rel), { withFileTypes: true }); } catch { return; }
+  for (const e of entries) {
+    const r = path.join(rel, e.name);
+    if (e.isDirectory()) copyTree(src, dest, skip, r);
+    else if (!skip.has(r.toLowerCase())) copyIfChanged(path.join(src, r), path.join(dest, r));
+  }
+}
+
+// `key = "value"` lines, RetroArch's config format: set these keys, keep everything else.
+export function mergeRaConfig(file, values) {
+  const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split(/\r?\n/).filter((l) => l.trim()) : [];
+  for (const [k, v] of Object.entries(values)) {
+    const line = `${k} = "${String(v).replace(/"/g, "")}"`;
+    const i = lines.findIndex((l) => l.split("=")[0].trim() === k);
+    if (i >= 0) lines[i] = line; else lines.push(line);
+  }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${lines.join("\n")}\n`);
+}
+
+// Per player: a config of their own, saves in Phosphor's save folder, and a system folder with
+// the free BIOS replacements (C-BIOS, EmuTOS) plus the player's own BIOS files for this console.
+export function retroarchSetup({ system, dataDir, saveDir, program, platform, biosFiles, graphics }) {
+  const root = installRoot(program);
+  const sysDir = path.join(dataDir, "system");
+  const sub = RA_BIOS_FOLDER[system] || "";
+  const own = (biosFiles || []).filter((f) => f.file);
+  // The player's own files win over the free ones of the same name (a real TOS over EmuTOS).
+  copyTree(path.join(BIOS_DIR, "retroarch"), sysDir, new Set(own.map((f) => path.join(sub, f.name).toLowerCase())));
+  for (const f of own) copyIfChanged(f.file, path.join(sysDir, sub, f.name));
+  const arch = platform === "darwin" ? (process.arch === "arm64" ? "arm64" : "x86_64") : "";
+  const core = path.join(root, "cores", arch, `${RA_CORES[system]}_libretro.${RA_CORE_EXT[platform]}`);
+  const cfg = path.join(dataDir, "retroarch.cfg");
+  mergeRaConfig(cfg, {
+    system_directory: sysDir,
+    savefile_directory: saveDir,
+    savestate_directory: path.join(saveDir, "states"),
+    screenshot_directory: path.join(saveDir, "screenshots"),
+    libretro_directory: path.dirname(core),
+    video_fullscreen: "true",
+    input_autodetect_enable: "true",
+    // Controller: L3+R3 opens RetroArch's menu, Start+Select quits back to Phosphor.
+    input_menu_toggle_gamepad_combo: "2",
+    input_quit_gamepad_combo: "4",
+    quit_press_twice: "false",
+    menu_show_online_updater: "false",
+    menu_show_core_updater: "false",
+    pause_nonactive: "false",
+    ...(graphics ? { video_vsync: graphics.vsync ? "true" : "false", fps_show: graphics.fps ? "true" : "false" } : {}),
+  });
+  return { core, cfg, sysDir };
+}
 
 // PCSX2 bindings for the first SDL controller (any Xbox, PlayStation or Switch pad).
 const PCSX2_PAD = Object.fromEntries(Object.entries({
@@ -351,6 +442,21 @@ export async function latestRelease(emu, platform = process.platform) {
     const a = (j.assets || []).find((x) => src.asset.test(x.name));
     if (!a) throw new Error(`${emu.name}: no download for this computer in release ${j.tag_name}`);
     return { version: j.tag_name.replace(/^v\.?/i, ""), url: a.browser_download_url, file: a.name, size: a.size };
+  }
+  if (src.kind === "buildbot") {
+    // libretro's build server: the newest stable RetroArch, plus each console's core ("extras",
+    // unpacked into the install's cores folder). The version is RetroArch's; cores update with it.
+    const base = process.env.PHOSPHOR_BUILDBOT || "https://buildbot.libretro.com";
+    const res = await fetch(`${base}/stable/`, { headers: { "user-agent": "Phosphor" } });
+    if (!res.ok) throw new Error(`${emu.name}: build server answered ${res.status}`);
+    const versions = [...(await res.text()).matchAll(/href="\/stable\/(\d+\.\d+\.\d+)\/"/g)].map((m) => m[1]);
+    const num = (v) => v.split(".").map(Number);
+    const version = versions.sort((a, b) => { const [x, y] = [num(a), num(b)]; return x[0] - y[0] || x[1] - y[1] || x[2] - y[2]; }).at(-1);
+    if (!version) throw new Error(`${emu.name}: no stable release found`);
+    const extras = src.cores.flatMap((c) => [...new Set(Object.values(RA_CORES))].map((core) => ({
+      url: `${base}/nightly/${c.dir}/latest/${core}_libretro.${c.ext}.zip`, file: `${core}_libretro.${c.ext}.zip`, into: c.into,
+    })));
+    return { version, url: `${base}/stable/${version}/${src.path}/${src.file}`, file: src.file, size: 0, extras };
   }
   if (src.kind === "dolphin") {
     const res = await fetch(DOLPHIN_FEED(), { headers: { accept: "application/json", "user-agent": "Phosphor" } });
