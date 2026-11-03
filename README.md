@@ -61,15 +61,19 @@ emulators it ships with:
 | PS Vita | Vita3K | Sony's free Vita system software (PSVUPDAT.PUP); Phosphor installs it |
 | PS4 (beta) | shadPS4 | nothing; many games don't run yet |
 | Switch | Eden | the keys from your Switch (prod.keys) |
-| Switch 2 (experimental) | Eglantine | nothing for unpacked game folders; Windows and Linux only |
+| Switch 2 (experimental) | Eglantine | nothing for unpacked game folders (zipped is fine) or .nup; Windows and Linux only |
 | Xbox | xemu | your Xbox's MCPX and flash BIOS (a blank hard drive is included) |
 | Xbox 360 | Xenia Canary | nothing (Windows only) |
+| Vectrex, Pokémon mini, MSX, Atari ST, Atari 800 | RetroArch | nothing: MSX runs on the free C-BIOS and Atari ST on the free EmuTOS, both included |
+| Intellivision, Odyssey², Channel F, Famicom Disk System, Neo Geo CD | RetroArch | that console's BIOS; the console appears once it's in your BIOS folder |
 
 They open full screen, saves stay in your Phosphor folder per player, and the same Update button
 keeps them current (each one can also be updated or rolled back on its own). Consoles waiting for
-a file show a lock that says exactly what to add; drop the file onto the window. PS3, PS4, Vita and
-Wii U games can be folders: Phosphor treats each game folder as one game. In the server version
-these games show up in the library with a note to play them in the desktop app.
+a file show a lock that says exactly what to add; drop the file onto the window. PS3, PS4, Vita,
+Wii U and Switch games can be folders, zipped or not: Phosphor treats each game folder as one game.
+In RetroArch, L3+R3 on the controller opens RetroArch's menu and Start+Select goes back to
+Phosphor. In the server version these games show up in the library with a note to play them in the
+desktop app.
 
 Consoles that cannot start without their maker's copyrighted BIOS (Sega CD, TurboGrafx-CD, 3DO,
 ColecoVision, Atari Lynx) are left out. If you own one of those BIOS files, drop it in and that
@@ -89,6 +93,9 @@ the file for your computer from the Releases page:
 | Mac (Apple Silicon) | `Phosphor-<version>-arm64-mac.zip` / `.dmg` | Not notarized yet: right-click the app › Open the first time |
 | Mac (Intel) | `Phosphor-<version>-mac.zip` / `.dmg` | Same as above |
 | Linux | `Phosphor-<version>.AppImage` | `chmod +x` and run; `.deb` and `.tar.gz` also available |
+
+After that, Phosphor updates itself: on Windows and with the AppImage it downloads the new version
+and installs it when you restart; on a Mac it tells you a new version is out and opens this page.
 
 Your games live in a `Phosphor` folder in your home folder (change it in Settings › Library). Drop
 games into `Phosphor/Drop Games Here` or onto the window. On the desktop, PSP and DOS games work

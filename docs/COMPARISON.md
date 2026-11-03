@@ -9,11 +9,12 @@ Legend: ✅ has it · ⭐ has it and goes further · ❌ doesn't · — not appl
 
 | Feature | RetroArch | EmulatorJS | RomM | LaunchBox | ES-DE/EmuDeck | Batocera | **Phosphor** |
 |---|---|---|---|---|---|---|---|
-| Emulators included | ✅ download per core | ✅ | via EmulatorJS | ❌ bring your own | ✅ EmuDeck installs | ✅ | ⭐ 42 in-browser emulators plus 12 desktop emulators in the desktop app (48 consoles and computers, PS2 to Switch 2), work offline (tested: NES, SNES, N64, GB, GBC, GBA, Genesis, PS1, PSP) |
-| Update emulators | per core | manual | image update | manual | EmuDeck updater | OS update | ⭐ one Update button for all, or update any single emulator; atomic, one-click undo for all or per emulator (tested with a fake registry, incl. failed download) |
+| Emulators included | ✅ download per core | ✅ | via EmulatorJS | ❌ bring your own | ✅ EmuDeck installs | ✅ | ⭐ 41 in-browser emulators plus 13 desktop emulators in the desktop app (63 consoles and computers, Vectrex to Switch 2; RetroArch covers the 10 no browser core plays), work offline (tested: NES, SNES, N64, GB, GBC, GBA, Genesis, PS1, PSP; RetroArch: Atari ST, Vectrex, MSX, Atari 800) |
+| Update emulators | per core | manual | image update | manual | EmuDeck updater | OS update | ⭐ one Update button for all, or update any single emulator, also from that console's own page; atomic, one-click undo for all or per emulator (tested with a fake registry, incl. failed download) |
+| Update the app itself | online updater | ❌ (new page version) | image update | ✅ | EmuDeck updater | OS update | ✅ desktop app checks GitHub Releases; Windows and Linux AppImage install it on restart, Mac opens the download |
 | Choose another emulator per game | ✅ manual | ❌ | ❌ | ✅ | ✅ | ✅ | ⭐ crash/freeze detected, "Try ParaLLEl N64" offered, choice remembered (tested) |
 | Install per device | yes | no | no | Windows | per device | own OS | ⭐ none: any browser, TV/PC/phone |
-| BIOS handling | find your own | find your own | BIOS upload | find your own | BIOS checker | BIOS checker | ⭐ ships open-source BIOS files (PlayStation OpenBIOS, GBA), uses emulators' built-in BIOS (DS, Saturn, PSP, Amiga…), finds your own BIOS anywhere by checksum; consoles with no legal BIOS stay out of the way |
+| BIOS handling | find your own | find your own | BIOS upload | find your own | BIOS checker | BIOS checker | ⭐ ships open-source BIOS files (PlayStation OpenBIOS, GBA, MSX C-BIOS, Atari ST EmuTOS), uses emulators' built-in BIOS (DS, Saturn, PSP, Amiga…), finds your own BIOS anywhere by checksum; consoles with no legal BIOS stay out of the way |
 
 ## Library
 
