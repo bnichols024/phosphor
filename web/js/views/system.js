@@ -163,7 +163,8 @@ export default async function systemView({ params, query }) {
       sys.threads && !window.isSecureContext ? h("div.note", { style: { marginTop: "12px", maxWidth: "720px" } }, ic("lock"),
         h("div", `${sys.short} games need a secure connection: open Phosphor with https:// (or http://localhost on the server itself). Every other console works over plain http.`)) : null,
       sys.locked && sys.needs ? h("div.note", { style: { marginTop: "16px", maxWidth: "720px" } }, ic("lock"),
-        h("div", sys.needs.help, sys.needs.link ? h("div", { style: { marginTop: "10px" } }, h("a.btn.small", { href: sys.needs.link.href, target: "_blank", rel: "noopener", "data-nav": "" }, ic("download"), sys.needs.link.label)) : null)) : null,
+        h("div", sys.needs.help, sys.missing?.length ? h("div", { style: { marginTop: "8px", fontWeight: 600 } }, `Still missing: ${sys.missing.join(", ")}`) : null,
+          sys.needs.links?.length ? h("div", { style: { marginTop: "10px", display: "flex", gap: "8px", flexWrap: "wrap" } }, sys.needs.links.map((l) => h("a.btn.small", { href: l.href, target: "_blank", rel: "noopener", "data-nav": "" }, ic("download"), l.label))) : null)) : null,
       sys.locked && !sys.needs ? h("div.note", { style: { marginTop: "16px", maxWidth: "720px" } }, ic("lock"),
         h("div", `${sys.short} needs the console's BIOS (${sys.biosFiles.map((f) => f.name).join(" or ")}). Drop it into the BIOS folder or onto this window and these games unlock.`)) : null));
 

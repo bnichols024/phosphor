@@ -285,8 +285,9 @@ export const SYSTEMS = [
     dats: [NOINTRO("Sony - PlayStation Vita"), NOINTRO("Sony - PlayStation Vita (PSN)")],
     meta: "Sony - PlayStation Vita", thumbs: ["Sony - PlayStation Vita"],
     color: "#0ea5e9", icon: "psp", pad: "psp", status: "good", box: 0.58,
-    needs: { files: "vita", chip: "Needs firmware", label: "the PS Vita system software", help: "PS Vita games need Sony's PS Vita system software (PSVUPDAT.PUP), a free download from PlayStation's website. Drop it into the BIOS folder or onto this window and Phosphor installs it the first time you play.",
-      link: { href: "https://www.playstation.com/en-us/support/hardware/psvita/system-software/", label: "Get it from PlayStation" } },
+    needs: { files: "vita", chip: "Needs 2 files from Sony", label: "the PS Vita system software and font package", help: "PS Vita games need two free files from Sony: the system software (PSVUPDAT.PUP, from PlayStation's website) and the font package (PSP2UPDAT.PUP, about 57 MB). Drop both into the BIOS folder or onto this window and Phosphor installs them the first time you play.",
+      link: { href: "https://www.playstation.com/en-us/support/hardware/psvita/system-software/", label: "System software (PlayStation)" },
+      links: [{ href: "http://dus01.psp2.update.playstation.net/update/psp2/image/2019_0924/sd_8b5f60b56c3da8365b973dba570c53a5/PSP2UPDAT.PUP?dest=us", label: "Font package (Sony)" }] },
   },
   // ---- Atari ----
   {
@@ -681,7 +682,7 @@ export function publicSystem(s) {
     // Consoles played in a desktop emulator (desktop app only) instead of in the browser.
     native: s.native || null, nativeName: s.native ? NATIVE[s.native].name : null,
     // Desktop consoles that need the player's own files (BIOS, keys, firmware) to start.
-    needs: s.needs ? { chip: s.needs.chip, label: s.needs.label, help: s.needs.help, link: s.needs.link || null } : null,
+    needs: s.needs ? { chip: s.needs.chip, label: s.needs.label, help: s.needs.help, link: s.needs.link || null, links: [s.needs.link, ...(s.needs.links || [])].filter(Boolean) } : null,
     folderGames: !!s.folderGames,
     biosFiles: s.bios?.files?.map((f) => ({ name: f.name, label: f.label })) || [],
     // How this console's BIOS is handled: a free BIOS we ship, one built into the emulator,

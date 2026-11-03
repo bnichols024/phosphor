@@ -9,7 +9,7 @@ import { EventEmitter } from "node:events";
 import { SYSTEMS, BY_ID, systemForFolder, EXT_INDEX, AMBIGUOUS_EXTS } from "./systems.js";
 import { identify, referencedFiles } from "./identify.js";
 import { parseName, sortTitle } from "./gamedb.js";
-import { readSfo, detectSystemFiles, SYSTEM_FILE_NAMES } from "./native/files.js";
+import { readSfo, detectSystemFiles, SYSTEM_FILE_NAMES, SYSTEM_FILE_LABELS } from "./native/files.js";
 import { extract } from "./native/manager.js";
 import { listZip } from "./lib/zip.js";
 
@@ -119,8 +119,12 @@ export class Library extends EventEmitter {
     for (const s of SYSTEMS) {
       const det = sysFiles[s.needs?.files || s.id];
       if (!det) continue;
+      const optional = new Set(det.optional || []);
       out[s.id] = { required: !!s.needs, ready: det.ready, yours: Object.values(det.files).some(Boolean), paths: det.files,
-        files: Object.entries(det.files).map(([k, v]) => ({ name: v ? path.basename(v) : k, label: k, found: !!v, verified: !!v, file: v })), needs: s.needs || null };
+        files: Object.entries(det.files).map(([k, v]) => ({ name: v ? path.basename(v) : k, label: SYSTEM_FILE_LABELS[k] || k, found: !!v, verified: !!v, file: v, optional: optional.has(k) })),
+        // What still has to be added, by name, for the lock message.
+        missing: det.ready ? [] : Object.entries(det.files).filter(([k, v]) => !v && !optional.has(k)).map(([k]) => SYSTEM_FILE_LABELS[k] || k),
+        needs: s.needs || null };
     }
     out.arcade = { ready: true, neogeo: !!have["neogeo.zip"], files: [{ name: "neogeo.zip", label: "Neo Geo BIOS (only for Neo Geo games)", found: !!have["neogeo.zip"], verified: !!have["neogeo.zip"] }] };
     return out;

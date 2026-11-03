@@ -52,17 +52,20 @@ export function buildApi(ctx) {
     const st = await library.biosStatus();
     return Object.fromEntries(Object.entries(st).map(([k, v]) => [k, v.ready]));
   };
+  // Desktop consoles' files still to add (["Font package (PSP2UPDAT.PUP…)"]), by console.
+  const filesMissing = async () => Object.fromEntries(Object.entries(await library.biosStatus()).filter(([, v]) => v.missing?.length).map(([k, v]) => [k, v.missing]));
 
   // ---- app state ----
   r.get("/api/state", async (req, res) => {
     const profile = profileOf(req);
     const counts = Object.fromEntries(db.all("SELECT system, COUNT(*) n FROM games WHERE missing_since IS NULL GROUP BY system").map((x) => [x.system, x.n]));
     const ready = await biosReady();
+    const missing = await filesMissing();
     json(res, 200, {
       version,
       profile: publicProfile(profile),
       profiles: db.all("SELECT * FROM profiles ORDER BY id").map(publicProfile),
-      systems: SYSTEMS.filter((s) => !(s.bios?.required && !ready[s.id]) && (!kidSystems(profile) || kidSystems(profile).has(s.id))).map((s) => ({ ...publicSystem(s), count: counts[s.id] || 0, locked: !!(s.needs && !ready[s.id]), emulatorReady: s.native ? !!native?.exePath(s.native) : emulators.hasCore(s.core) })),
+      systems: SYSTEMS.filter((s) => !(s.bios?.required && !ready[s.id]) && (!kidSystems(profile) || kidSystems(profile).has(s.id))).map((s) => ({ ...publicSystem(s), count: counts[s.id] || 0, locked: !!(s.needs && !ready[s.id]), missing: s.needs ? missing[s.id] || [] : [], emulatorReady: s.native ? !!native?.exePath(s.native) : emulators.hasCore(s.core) })),
       hiddenSystems: SYSTEMS.filter((s) => s.bios?.required && !ready[s.id]).map((s) => ({ id: s.id, name: s.name, games: counts[s.id] || 0, biosFiles: s.bios.files.map((f) => f.name) })),
       library: { ...library.status, root: paths.root, dropFolder: library.dropDir, total: SYSTEMS.filter((s) => !(s.bios?.required && !ready[s.id])).reduce((a, s) => a + (counts[s.id] || 0), 0) },
       emulators: emulators.summary(),
@@ -333,7 +336,7 @@ export function buildApi(ctx) {
         game: { ...gameRow(g, play), developer: g.developer, publisher: g.publisher },
         system: publicSystem(sys), profile: publicProfile(profile),
         native: { emulator: NATIVE[sys.native].name, desktop: !!runner, installed: !!native?.exePath(sys.native), local: isLocal(req), status: runner?.status() || null,
-          supported: !native || native.supported(sys.native), needs: sys.needs && !(await biosReady())[sys.id] ? publicSystem(sys).needs : null },
+          supported: !native || native.supported(sys.native), needs: sys.needs && !(await biosReady())[sys.id] ? { ...publicSystem(sys).needs, missing: (await filesMissing())[sys.id] || [] } : null },
       });
     }
     const active = emulators.active();

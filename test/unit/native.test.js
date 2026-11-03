@@ -327,6 +327,69 @@ test("players' own files are recognised and passed to the emulators", async () =
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("PS Vita: both Sony files needed, installed until Vita3K has them, games start in its plain window", async () => {
+  const { detectSystemFiles } = await import("../../server/native/files.js");
+  const { NATIVE, vitaFs } = catalog;
+  const dir = tmpdir("phosphor-vita-");
+  const f = (name, size) => ({ file: path.join(dir, name), name: name.toLowerCase(), size });
+  const MB = 1024 * 1024;
+  // Only the system software: still locked, and the lock says the font package is missing.
+  let det = await detectSystemFiles([f("PSVUPDAT.PUP", 133 * MB)]);
+  assert.equal(det.vita.ready, false);
+  assert.equal(det.vita.files.fonts, null);
+  // Sony calls both the font package and the pre-install package PSP2UPDAT.PUP: size tells them apart.
+  det = await detectSystemFiles([f("PSVUPDAT.PUP", 133 * MB), f("PSP2UPDAT (1).PUP", 129 * MB), f("PSP2UPDAT.PUP", 57 * MB)]);
+  assert.equal(det.vita.ready, true);
+  assert.equal(path.basename(det.vita.files.fonts), "PSP2UPDAT.PUP");
+  assert.equal(path.basename(det.vita.files.preinst), "PSP2UPDAT (1).PUP");
+
+  // Installs: one step per file whose part of Vita3K's folder is still empty.
+  const data = path.join(dir, "data");
+  for (const name of ["PSVUPDAT.PUP", "PSP2UPDAT.PUP", "PSP2UPDAT (1).PUP"]) fs.writeFileSync(path.join(dir, name), "pup");
+  const vfs = vitaFs("linux", data);
+  assert.equal(vfs, path.join(data, "data", "Vita3K", "Vita3K"), "the player's own XDG data folder");
+  let steps = NATIVE.vita3k.prepare({ dataDir: data, sysFiles: det.vita.files, platform: "linux" });
+  // First "--version" (Vita3K's --firmware crashes on a first run without a config.yml).
+  assert.deepEqual(steps[0].args, ["--version"]);
+  const installs = (st) => st.filter((s) => s.args[0] === "--firmware");
+  assert.deepEqual(installs(steps).map((s) => s.args[1]), [det.vita.files.firmware, det.vita.files.fonts, det.vita.files.preinst]);
+  assert.equal(installs(steps)[0].check(), false, "an install that wrote nothing doesn't count (Vita3K can exit 0 after crashing)");
+  for (const part of ["vs0", "sa0"]) { fs.mkdirSync(path.join(vfs, part), { recursive: true }); fs.writeFileSync(path.join(vfs, part, "x"), ""); }
+  assert.equal(installs(steps)[0].check(), true);
+  steps = NATIVE.vita3k.prepare({ dataDir: data, sysFiles: det.vita.files, platform: "linux" });
+  assert.deepEqual(installs(steps).map((s) => s.args[1]), [det.vita.files.preinst], "only what Vita3K doesn't have yet");
+  fs.mkdirSync(path.join(vfs, "pd0"), { recursive: true }); fs.writeFileSync(path.join(vfs, "pd0", "x"), "");
+  assert.equal(NATIVE.vita3k.prepare({ dataDir: data, sysFiles: det.vita.files, platform: "linux" }).length, 0, "nothing to do: no --version run either");
+
+  // Launch: plain SDL window. Not installed yet -> the game itself (Vita3K installs and starts it);
+  // installed -> its title ID. A failed first start doesn't count as installed.
+  const game = path.join(dir, "Game", "eboot.bin");
+  fs.mkdirSync(path.join(dir, "Game", "sce_sys"), { recursive: true });
+  fs.writeFileSync(game, "");
+  const sfo = (() => { // minimal PARAM.SFO with TITLE_ID = PCSE00001
+    const key = "TITLE_ID\0", val = "PCSE00001\0";
+    const b = Buffer.alloc(0x14 + 0x10 + 16 + 16);
+    b.write("\0PSF", 0); b.writeUInt32LE(0x101, 4); b.writeUInt32LE(0x24, 8); b.writeUInt32LE(0x24 + 16, 12); b.writeUInt32LE(1, 16);
+    b.writeUInt16LE(0, 0x14); b.writeUInt16LE(0x0204, 0x16); b.writeUInt32LE(val.length, 0x18); b.writeUInt32LE(16, 0x1c); b.writeUInt32LE(0, 0x20);
+    b.write(key, 0x24); b.write(val, 0x24 + 16);
+    return b;
+  })();
+  fs.writeFileSync(path.join(dir, "Game", "sce_sys", "param.sfo"), sfo);
+  let r = await NATIVE.vita3k.launch({ game, dataDir: data, platform: "linux" });
+  assert.deepEqual(r.args, ["--frontend", "sdl", "-F", path.join(dir, "Game")]);
+  r = await NATIVE.vita3k.launch({ game, dataDir: data, platform: "linux" });
+  assert.deepEqual(r.args, ["--frontend", "sdl", "-F", path.join(dir, "Game")], "still not installed: install again, never -r for a missing app");
+  fs.mkdirSync(path.join(vfs, "ux0", "app", "PCSE00001"), { recursive: true });
+  fs.writeFileSync(path.join(vfs, "ux0", "app", "PCSE00001", "eboot.bin"), "");
+  r = await NATIVE.vita3k.launch({ game, dataDir: data, platform: "linux" });
+  assert.deepEqual(r.args, ["--frontend", "sdl", "-F", "-r", "PCSE00001"]);
+  // Windows: Vita3K's folder is under %APPDATA%.
+  const old = process.env.APPDATA;
+  process.env.APPDATA = "C:\\Users\\b\\AppData\\Roaming";
+  try { assert.equal(vitaFs("win32", data), path.join("C:\\Users\\b\\AppData\\Roaming", "Vita3K", "Vita3K")); } finally { process.env.APPDATA = old; }
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("desktop consoles that need the player's files show locked until those files are dropped in", async () => {
   const { start } = await import("../../server/index.js");
   const root = tmpdir("phosphor-locks-");
@@ -343,6 +406,18 @@ test("desktop consoles that need the player's files show locked until those file
     await app.library.scan({ reason: "test" });
     assert.ok(fs.existsSync(path.join(root, "BIOS", "prod.keys")), "keys filed into the BIOS folder");
     assert.equal((await sys("switch")).locked, false);
+    // PS Vita with only the system software: still locked, and it says exactly what's missing.
+    fs.writeFileSync(path.join(root, "Drop Games Here", "PSVUPDAT.PUP"), "SCEUF");
+    await app.library.scan({ reason: "test" });
+    const v = await sys("vita");
+    assert.equal(v.locked, true);
+    assert.equal(v.missing.length, 1);
+    assert.match(v.missing[0], /Font package \(PSP2UPDAT\.PUP/);
+    assert.equal(v.needs.links.length, 2, "links to both Sony downloads");
+    fs.writeFileSync(path.join(root, "Drop Games Here", "PSP2UPDAT (1).PUP"), "fonts");
+    await app.library.scan({ reason: "test" });
+    assert.ok(fs.existsSync(path.join(root, "BIOS", "PSP2UPDAT (1).PUP")), "Windows' renamed copy is filed too");
+    assert.equal((await sys("vita")).locked, false);
   } finally {
     await app.close();
     fs.rmSync(root, { recursive: true, force: true });

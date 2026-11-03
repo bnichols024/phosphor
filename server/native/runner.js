@@ -54,8 +54,9 @@ export class NativeRunner {
         onStep(step.message);
         this.log.info?.(`native: ${emu.name} ${step.args.join(" ")}`);
         const code = await this._runOnce(program, step.args, { ...process.env, ...(step.env || {}) });
-        if (code !== 0) throw Object.assign(new Error(`${emu.name} couldn't finish setting up (${step.message.replace(/…$/, "")}).`), { status: 500 });
-        fs.writeFileSync(step.marker, new Date().toISOString());
+        // Some emulators exit 0 after crashing, so a step can also say how to tell it worked.
+        if (code !== 0 || (step.check && !step.check())) throw Object.assign(new Error(`${emu.name} couldn't finish setting up (${step.message.replace(/…$/, "")}).`), { status: 500 });
+        if (step.marker) fs.writeFileSync(step.marker, new Date().toISOString());
       }
       ({ args, env } = await (configure ? emu.configure(ctx) : emu.launch(ctx)));
     } finally { this.preparing = null; }

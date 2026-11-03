@@ -56,8 +56,14 @@ export async function detectSystemFiles(files, { exclude = new Set() } = {}) {
   // PS3 / Vita: Sony's free system software files.
   const ps3 = byName(/^ps3updat\.pup$/);
   out.ps3 = { ready: !!ps3, files: { firmware: ps3?.file || null } };
-  const vita = byName(/^psvupdat\.pup$/), font = byName(/^psp2updat\.pup$/);
-  out.vita = { ready: !!vita, files: { firmware: vita?.file || null, fonts: font?.file || null } };
+  // Vita: the system software (PSVUPDAT.PUP) and the font package Vita3K also needs. Sony names
+  // the font package and the optional pre-install package both PSP2UPDAT.PUP; the font package is
+  // the small one (about 57 MB, the other about 129 MB). Windows' "(1)" copies count too.
+  const vitaPup = (stem) => files.filter((f) => new RegExp(`^${stem}( ?\\(\\d+\\))?\\.pup$`).test(f.name));
+  const vita = vitaPup("psvupdat")[0];
+  const p2 = vitaPup("psp2updat");
+  const font = p2.find((f) => f.size < 100 * 1024 * 1024), pre = p2.find((f) => f.size >= 100 * 1024 * 1024);
+  out.vita = { ready: !!(vita && font), files: { firmware: vita?.file || null, fonts: font?.file || null, preinst: pre?.file || null }, optional: ["preinst"] };
   // Wii U: keys only matter for encrypted dumps, so never a lock.
   const wiiu = byName(/^keys\.txt$/);
   out.wiiu = { ready: true, files: { keys: wiiu?.file || null } };
@@ -65,7 +71,14 @@ export async function detectSystemFiles(files, { exclude = new Set() } = {}) {
 }
 
 // Names that mean "this belongs in the BIOS folder" when dropped anywhere.
-export const SYSTEM_FILE_NAMES = /^(prod\.keys|title\.keys|keys\.txt|ps3updat\.pup|psvupdat\.pup|psp2updat\.pup|mcpx.*\.bin)$/i;
+export const SYSTEM_FILE_NAMES = /^(prod\.keys|title\.keys|keys\.txt|ps3updat\.pup|(psvupdat|psp2updat)( ?\(\d+\))?\.pup|mcpx.*\.bin)$/i;
+
+// What each detected file is, for the BIOS page and lock messages.
+export const SYSTEM_FILE_LABELS = {
+  bios: "PS2 BIOS", mcpx: "Xbox MCPX boot ROM", flash: "Xbox flash BIOS", prodKeys: "prod.keys", titleKeys: "title.keys (optional)",
+  keys: "keys.txt (only for encrypted dumps)", firmware: "System software", fonts: "Font package (PSP2UPDAT.PUP, about 57 MB)",
+  preinst: "Pre-install package (optional)",
+};
 
 // ---- INI files (PCSX2, ...) ----
 // Sets keys in an INI file, keeping everything else the player configured. Qt-based emulators

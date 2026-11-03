@@ -5,6 +5,7 @@
 // with a "Play on the desktop app" note.
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { mergeIni, readIniSection, appDataDir, copyIfChanged, readSfo, parseSfo } from "./files.js";
 import { listZip, readZipEntry } from "../lib/zip.js";
@@ -169,26 +170,31 @@ export const NATIVE = {
       linux: { kind: "github", repo: "Vita3K/Vita3K", asset: /^Vita3K-x86_64\.AppImage$/i, version: (t, j) => j.published_at.slice(0, 16).replace(/[-:]/g, "").replace("T", "-") },
     },
     exe: { win32: /^Vita3K\.exe$/i, darwin: /^Vita3K\.app$/i, linux: /\.AppImage$/i },
-    prepare({ dataDir, sysFiles }) {
+    // Sony's files are installed into Vita3K's own folder when that part of it is still empty
+    // (vs0 = system software, sa0 = fonts, pd0 = pre-install), not just once per marker: a player
+    // whose first install never happened gets it the next time.
+    // Vita3K bug: on its very first run (no config.yml yet) "--firmware" crashes before installing
+    // anything, because its data folder isn't set until a config exists. A "--version" run first
+    // writes that config. Each install is then checked by looking for its files.
+    prepare({ dataDir, sysFiles, platform }) {
+      const vfs = vitaFs(platform, dataDir);
       const steps = [];
-      for (const [what, file] of [["vita-firmware", sysFiles?.firmware], ["vita-fonts", sysFiles?.fonts]]) {
-        if (!file) continue;
-        const marker = doneMarker(dataDir, what, file);
-        if (!fs.existsSync(marker)) steps.push({ args: ["--firmware", file], marker, env: xdg(dataDir), message: "Installing the PS Vita system software (one time)…" });
+      for (const [what, file, part, label] of [["vita-firmware", sysFiles?.firmware, "vs0", "system software"], ["vita-fonts", sysFiles?.fonts, "sa0", "font package"], ["vita-preinst", sysFiles?.preinst, "pd0", "pre-install package"]]) {
+        if (!file || hasFiles(path.join(vfs, part))) continue;
+        steps.push({ args: ["--firmware", file], marker: doneMarker(dataDir, what, file), env: xdg(dataDir), message: `Installing the PS Vita ${label} (one time)…`, check: () => hasFiles(path.join(vfs, part)) });
       }
+      if (steps.length) steps.unshift({ args: ["--version"], env: xdg(dataDir), message: "Getting Vita3K ready…" });
       return steps;
     },
     configure({ dataDir }) { return { args: [], env: xdg(dataDir) }; },
-    // A game is installed the first time it's played (Vita3K installs, then starts it), and after
-    // that started by its title ID.
-    async launch({ game, dataDir }) {
+    // Vita3K's plain game window (--frontend sdl): no welcome screen, no library, no firmware
+    // prompts, and it quits with the game. A game not installed yet is installed and started in one
+    // go; after that it starts by title ID. "Installed" is what Vita3K itself has (ux0/app/<ID>).
+    async launch({ game, dataDir, platform }) {
       const content = /eboot\.bin$/i.test(game) ? path.dirname(game) : game;
       const titleId = await vitaTitleId(content);
-      const installed = path.join(dataDir, "installed.json");
-      const list = (() => { try { return JSON.parse(fs.readFileSync(installed, "utf8")); } catch { return {}; } })();
-      const run = titleId && list[titleId] ? ["-r", titleId] : [content];
-      if (titleId && !list[titleId]) { list[titleId] = content; fs.mkdirSync(dataDir, { recursive: true }); fs.writeFileSync(installed, JSON.stringify(list)); }
-      return { args: ["-F", ...run], env: xdg(dataDir) };
+      const installed = titleId && hasFiles(path.join(vitaFs(platform, dataDir), "ux0", "app", titleId));
+      return { args: ["--frontend", "sdl", "-F", ...(installed ? ["-r", titleId] : [content])], env: xdg(dataDir) };
     },
   },
 
@@ -395,6 +401,17 @@ const PCSX2_PAD = Object.fromEntries(Object.entries({
   LUp: "-LeftY", LDown: "+LeftY", LLeft: "-LeftX", LRight: "+LeftX", RUp: "-RightY", RDown: "+RightY", RLeft: "-RightX", RRight: "+RightX",
   LargeMotor: "LargeMotor", SmallMotor: "SmallMotor",
 }).map(([k, v]) => [k, k === "Type" ? v : `SDL-0/${v}`]));
+
+// Where Vita3K keeps the console's files (SDL's pref path for "Vita3K/Vita3K"): shared under
+// %APPDATA% on Windows, the player's own XDG data folder on Linux, Application Support on a Mac
+// (its "fs" subfolder unless an older install already used the top level).
+export function vitaFs(platform, dataDir) {
+  if (platform === "win32") return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "Vita3K", "Vita3K");
+  if (platform === "linux") return path.join(dataDir, "data", "Vita3K", "Vita3K");
+  const base = path.join(os.homedir(), "Library", "Application Support", "Vita3K", "Vita3K");
+  return fs.existsSync(path.join(base, "ux0")) ? base : path.join(base, "fs");
+}
+const hasFiles = (dir) => { try { return fs.readdirSync(dir).length > 0; } catch { return false; } };
 
 // PS Vita title ID from a .vpk (zip) or an installed-style folder.
 async function vitaTitleId(content) {

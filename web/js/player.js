@@ -184,7 +184,7 @@ async function playNative() {
     { info: true, link: { href: "https://github.com/bnichols024/phosphor/releases/latest", label: "Get the desktop app" } });
   if (!N.local) return fail(`${L.system.short} games start on the computer running Phosphor. Open Phosphor there and press Play.`, { info: true });
   if (N.supported === false) return fail(`${L.system.short} games play in the Windows version of Phosphor: ${N.emulator} doesn't run on this computer yet.`, { info: true });
-  if (N.needs) return fail(N.needs.help, { info: true, link: N.needs.link });
+  if (N.needs) return fail(N.needs.missing?.length ? `${N.needs.help} Still missing: ${N.needs.missing.join(", ")}.` : N.needs.help, { info: true, links: N.needs.links || (N.needs.link ? [N.needs.link] : []) });
   if (!N.installed) return fail(`${N.emulator} isn't installed yet. Open Settings › Emulators and press Update.`);
   $(".status", loader).textContent = `Starting ${N.emulator}…`;
   let launched = false;
@@ -225,8 +225,8 @@ const CORE_NAMES = { mupen64plus_next: "Mupen64Plus", parallel_n64: "ParaLLEl N6
 const coreName = (c) => CORE_NAMES[c] || c;
 
 let failed = false;
-// info: a calm explanation rather than an error (no "Try again"); link: { href, label } button.
-function fail(message, { info = false, link = null } = {}) {
+// info: a calm explanation rather than an error (no "Try again"); link / links: { href, label } buttons.
+function fail(message, { info = false, link = null, links = link ? [link] : [] } = {}) {
   if (failed) return;
   failed = true;
   if (!loader) buildChrome();
@@ -239,7 +239,7 @@ function fail(message, { info = false, link = null } = {}) {
   $(".inner", loader).append(el("div", { class: info ? "err info" : "err" }, message),
     el("div", { class: "err-actions" },
       others.map((c) => el("button", { class: "hbtn", style: "width:auto;padding:0 18px;background:#fff;color:#000", onclick: () => location.replace(`/play/${gameId}?core=${c}`) }, `Try ${coreName(c)}`)),
-      link ? el("a", { class: "hbtn", href: link.href, target: "_blank", rel: "noopener", style: "width:auto;padding:0 18px;background:#fff;color:#000;text-decoration:none" }, link.label) : null,
+      links.map((l) => el("a", { class: "hbtn", href: l.href, target: "_blank", rel: "noopener", style: "width:auto;padding:0 18px;background:#fff;color:#000;text-decoration:none" }, l.label)),
       info ? null : el("button", { class: "hbtn", style: "width:auto;padding:0 18px", onclick: () => location.reload() }, "Try again"),
       el("button", { class: "hbtn", style: "width:auto;padding:0 18px", onclick: () => exitTo() }, "Back")));
 }

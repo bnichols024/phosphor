@@ -58,7 +58,7 @@ emulators it ships with:
 | 3DS | Azahar | nothing (decrypted games) |
 | PS2 | PCSX2 | the BIOS from your PS2 |
 | PS3 | RPCS3 | Sony's free PS3 system software (PS3UPDAT.PUP); Phosphor installs it |
-| PS Vita | Vita3K | Sony's free Vita system software (PSVUPDAT.PUP); Phosphor installs it |
+| PS Vita | Vita3K | Sony's free Vita system software (PSVUPDAT.PUP) and font package (PSP2UPDAT.PUP); Phosphor installs them |
 | PS4 (beta) | shadPS4 | nothing; many games don't run yet |
 | Switch | Eden | the keys from your Switch (prod.keys) |
 | Switch 2 (experimental) | Eglantine | nothing for unpacked game folders (zipped is fine) or .nup; Windows and Linux only |
