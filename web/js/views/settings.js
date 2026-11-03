@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { store, go, refreshState } from "../store.js";
-import { h, ic, toast, toastError, sheet, confirmBox, promptBox, timeAgo, plural, desktopLink } from "../ui.js";
+import { h, ic, toast, toastError, sheet, confirmBox, promptBox, timeAgo, plural, desktopLink, confirmRollback } from "../ui.js";
 import { sound } from "../sound.js";
 import { updates, watchUpdates } from "../update.js";
 import { ACTIONS, DEFAULTS, POSITIONAL, PAD_BUTTONS, padName, keyName, layoutFor } from "../controls.js";
@@ -158,7 +158,7 @@ async function emulators(root) {
           // A "previous" version that is really the newest one is offered as Update instead.
           r.previous && r.previous !== change?.to ? h("button.btn.small.ghost", { "data-nav": "", disabled: running, title: `Go back to v${r.previous}`, onclick: async (e) => {
             const b = e.currentTarget;
-            if (!(await confirmBox(`Go back to ${r.name} ${r.previous}?`, `Only ${r.name} changes. You can update it again any time.`, { ok: "Go back" }))) return;
+            if (!(await confirmRollback(r.name, r.previous))) return;
             runItem("rollback", { kind: r.kind, id: r.id }, b);
           } }, ic("history"), `v${r.previous}`) : null));
     }))));

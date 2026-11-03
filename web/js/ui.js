@@ -130,6 +130,10 @@ export function sheet({ title, sub, body, actions = [], wide = false, onClose })
 export const closeTopSheet = () => { const c = sheetStack[sheetStack.length - 1]; if (c) { c(undefined); return true; } return false; };
 export const sheetOpen = () => sheetStack.length > 0;
 
+// "Previous version" on one emulator (Settings › Emulators and a console's own page).
+export const confirmRollback = (name, version) =>
+  confirmBox(`Go back to ${name} ${version}?`, `Only ${name} changes. You can update it again any time.`, { ok: "Go back" });
+
 export function confirmBox(title, text, { ok = "OK", danger = false } = {}) {
   return sheet({ title, sub: text, actions: [{ label: "Cancel", kind: "ghost", value: false }, { label: ok, kind: danger ? "accent danger" : "primary", value: true }] }).done.then(Boolean);
 }

@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { store, go, refreshState } from "../store.js";
-import { h, ic, consoleArt, gameCard, plural, emptyState, hexToRgb, toast, toastError, confirmBox, desktopLink } from "../ui.js";
+import { h, ic, consoleArt, gameCard, plural, emptyState, hexToRgb, toast, toastError, confirmRollback, desktopLink } from "../ui.js";
 import { sound } from "../sound.js";
 import { folderSheet } from "./library.js";
 
@@ -75,7 +75,7 @@ function emulatorBar(sys) {
     try { await api.post("/api/emulators/update", item); } catch (e) { toastError(e); draw(); }
   }
   async function rollback() {
-    if (!(await confirmBox(`Go back to ${name} ${info.previous}?`, `Only ${name} changes. You can update it again any time.`, { ok: "Go back" }))) return;
+    if (!(await confirmRollback(name, info.previous))) return;
     busy("Going back…");
     try {
       await api.post("/api/emulators/rollback", item);

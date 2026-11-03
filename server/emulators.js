@@ -208,8 +208,7 @@ export class Emulators {
     if (kind === "native") {
       if (!this.native) throw new Error("Desktop emulators only exist in the desktop app.");
       const n = await this.native.checkOne(id);
-      const prev = this.native.summary().find((x) => x.id === id)?.previous || null;
-      return { kind, id, name: n.name, from: n.from, to: n.to, changed: n.changed, previous: prev };
+      return { kind, id, name: n.name, from: n.from, to: n.to, changed: n.changed, previous: n.previous };
     }
     if (kind !== "core" || !ALL_CORES.includes(id)) throw new Error("Unknown emulator.");
     const a = this.active();

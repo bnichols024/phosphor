@@ -53,34 +53,32 @@ export class NativeEmulators {
   summary() {
     return NATIVE_IDS.filter((id) => this.supported(id)).map((id) => {
       const a = this.active(id);
-      const prev = this.installs(id).find((i) => a && i.version !== a.version);
-      return { id, name: NATIVE[id].name, systems: NATIVE[id].systems, home: NATIVE[id].home, version: a?.version || null, source: a?.source || null, installedAt: a?.installedAt || null, previous: prev?.version || null,
+      return { id, name: NATIVE[id].name, systems: NATIVE[id].systems, home: NATIVE[id].home, version: a?.version || null, source: a?.source || null, installedAt: a?.installedAt || null, previous: this._previous(id),
         configurable: !!NATIVE[id].configure, graphics: NATIVE[id].graphics || [] };
     });
   }
 
   async check() {
-    const out = [];
     // One emulator's site being down doesn't stop the others from updating.
-    await Promise.all(NATIVE_IDS.filter((x) => this.supported(x)).map(async (id) => {
+    return Promise.all(NATIVE_IDS.filter((x) => this.supported(x)).map((id) => this.checkOne(id).catch((e) => {
       const have = this.active(id)?.version || null;
-      try {
-        const rel = await latestRelease(NATIVE[id], this.platform);
-        out.push({ id, name: NATIVE[id].name, from: have, to: rel.version, release: rel, changed: have !== rel.version });
-      } catch (e) {
-        this.log.warn?.(`native: ${NATIVE[id].name}: ${e.message}`);
-        out.push({ id, name: NATIVE[id].name, from: have, to: have, error: e.message, changed: false });
-      }
-    }));
-    return NATIVE_IDS.map((id) => out.find((o) => o.id === id)).filter(Boolean);
+      this.log.warn?.(`native: ${NATIVE[id].name}: ${e.message}`);
+      return { id, name: NATIVE[id].name, from: have, to: have, error: e.message, changed: false, previous: this._previous(id) };
+    })));
   }
 
-  // The same check for one emulator (one request instead of one per emulator).
+  // The same check for one emulator (one request instead of one per emulator). `previous`: the
+  // version Undo would go back to.
   async checkOne(id) {
     if (!this.supported(id)) throw new Error(`${NATIVE[id]?.name || id} doesn't run on this computer.`);
     const have = this.active(id)?.version || null;
     const rel = await latestRelease(NATIVE[id], this.platform);
-    return { id, name: NATIVE[id].name, from: have, to: rel.version, release: rel, changed: have !== rel.version };
+    return { id, name: NATIVE[id].name, from: have, to: rel.version, release: rel, changed: have !== rel.version, previous: this._previous(id) };
+  }
+
+  _previous(id) {
+    const a = this.active(id);
+    return this.installs(id).find((i) => a && i.version !== a.version)?.version || null;
   }
 
   // Download + unpack one emulator into `root` (default: the update folder) and make it active.
