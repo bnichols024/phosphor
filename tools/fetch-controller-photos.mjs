@@ -78,6 +78,13 @@ export const PHOTOS = {
   neogeocd: "Neo-Geo-CD-Controller-FL.jpg",
   atari800: "Atari-800XL.jpg",
   cd32: "Amiga-CD32-Controller-L.jpg",
+  // RetroArch consoles (desktop extras).
+  pokemini: "Pokemon mini.png",
+  msx: "Sony HitBit HB-10P (Transparent Background No Shadow).png",
+  atarist: "Atari 1040STf.jpg",
+  odyssey2: "Magnavox-Odyssey2-Console-BL.jpg",
+  channelf: "Fairchild-Channel-F.jpg",
+  fds: "Nintendo-Famicom-Disk-System.jpg",
 };
 
 // Names for consoles whose photo exists before the console itself is in server/systems.js.

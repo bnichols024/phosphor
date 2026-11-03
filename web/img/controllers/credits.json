@@ -71,6 +71,14 @@
     "license": "CC BY-SA 3.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
   },
+  "atarist": {
+    "name": "Atari ST",
+    "file": "Atari 1040STf.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Atari_1040STf.jpg",
+    "artist": "© Bill Bertram, 2006",
+    "license": "CC BY-SA 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.5"
+  },
   "c128": {
     "name": "Commodore 128",
     "file": "Commodore-128.png",
@@ -94,6 +102,14 @@
     "artist": "Evan-Amos",
     "license": "Public domain",
     "licenseUrl": ""
+  },
+  "channelf": {
+    "name": "Fairchild Channel F",
+    "file": "Fairchild-Channel-F.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Fairchild-Channel-F.jpg",
+    "artist": "Evan-Amos",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
   },
   "coleco": {
     "name": "ColecoVision",
@@ -132,6 +148,14 @@
     "file": "Sega-Dreamcast-Controller-wVMU-FL.png",
     "page": "https://commons.wikimedia.org/wiki/File:Sega-Dreamcast-Controller-wVMU-FL.png",
     "artist": "Evan-Amos, modified by Gunnar.offel",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
+  "fds": {
+    "name": "Famicom Disk System",
+    "file": "Nintendo-Famicom-Disk-System.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Nintendo-Famicom-Disk-System.jpg",
+    "artist": "Evan-Amos",
     "license": "Public domain",
     "licenseUrl": ""
   },
@@ -207,6 +231,14 @@
     "license": "Public domain",
     "licenseUrl": ""
   },
+  "msx": {
+    "name": "MSX / MSX2",
+    "file": "Sony HitBit HB-10P (Transparent Background No Shadow).png",
+    "page": "https://commons.wikimedia.org/wiki/File:Sony_HitBit_HB-10P_(Transparent_Background_No_Shadow).png",
+    "artist": "Sony_hitbit_10p.jpg: Doppelgangland derivative work: User:Ubcule",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
   "n64": {
     "name": "Nintendo 64",
     "file": "N64-Controller-Gray.jpg",
@@ -247,6 +279,14 @@
     "license": "Public domain",
     "licenseUrl": ""
   },
+  "odyssey2": {
+    "name": "Magnavox Odyssey² / Videopac",
+    "file": "Magnavox-Odyssey2-Console-BL.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Magnavox-Odyssey2-Console-BL.jpg",
+    "artist": "Evan-Amos",
+    "license": "Public domain",
+    "licenseUrl": ""
+  },
   "pce": {
     "name": "TurboGrafx-16 / PC Engine",
     "file": "NEC-TurboGrafx-16-Controller-FR.jpg",
@@ -278,6 +318,14 @@
     "artist": "Foofy (English Wikipedia)",
     "license": "CC BY-SA 3.0",
     "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/"
+  },
+  "pokemini": {
+    "name": "Nintendo Pokémon mini",
+    "file": "Pokemon mini.png",
+    "page": "https://commons.wikimedia.org/wiki/File:Pokemon_mini.png",
+    "artist": "Sesu Prime",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0"
   },
   "ps2": {
     "name": "PlayStation 2",
