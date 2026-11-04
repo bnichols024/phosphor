@@ -174,7 +174,7 @@ export function gameBrowser({ games, key, fixedSystem = null, ratio = 0.75, quer
 
   const drawControls = () => {
     const sysCount = counted((g) => g.system);
-    toolbarRow.replaceChildren(
+    toolbarRow.replaceChildren(...[
       fixedSystem ? null : pickerBtn("Console", st.systems.length ? (st.systems.length === 1 ? sysName(st.systems[0]) : `${st.systems.length} consoles`) : "", async () => {
         st.systems = await pick("Consoles", systemsIn.map((id) => [id, store.systems[id]?.name || id, plural(sysCount(id), "game")]), st.systems, { multi: true }); refresh();
       }),
@@ -183,7 +183,7 @@ export function gameBrowser({ games, key, fixedSystem = null, ratio = 0.75, quer
       pickerBtn("Players", PLAYERS.find(([v]) => v === st.players && v)?.[1] || "", async () => { st.players = await pick("Players", PLAYERS, st.players); refresh(); }),
       regions.length > 1 ? pickerBtn("Region", st.region, async () => { st.region = await pick("Region", [["", "Any region"], ...regions.map((r) => [r, r])], st.region); refresh(); }) : null,
       h("button.chip.picker", { "data-nav": "", onclick: async () => { st.sort = await pick("Sort by", SORTS, st.sort); refresh(); } }, ic("sliders"), h("span", SORTS.find(([v]) => v === st.sort)?.[1] || "A–Z")),
-      filtersActive() ? clearBtn : null);
+      filtersActive() ? clearBtn : null].filter(Boolean));
     showRow.replaceChildren(...SHOW.map(([v, label]) => h("button.chip", { "data-nav": "", class: st.show === v ? "on" : "", onclick: () => { st.show = st.show === v ? "all" : v; refresh(); } }, label)));
     viewBtns.replaceChildren(
       h("button", { "data-nav": "", class: st.layout === "grid" ? "on" : "", "aria-label": "Grid", onclick: () => { st.layout = "grid"; refresh(); } }, ic("library")),

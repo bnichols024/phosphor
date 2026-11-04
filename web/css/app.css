@@ -856,3 +856,8 @@ body.pad .grow-row:focus { border-color: #fff; }
 .reel-pick .eyebrow svg { width: 15px; height: 15px; }
 .reel-pick .meta { display: flex; gap: 8px; flex-wrap: wrap; }
 .reel-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.reel-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.reel-filters .chip { height: 32px; padding: 0 13px; font-size: 13px; }
+.gr-art { overflow: hidden; }
+.gr-art img { max-height: 48px; max-width: 48px; }
+.crt-screen::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: linear-gradient(0deg, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.35) 22%, transparent 38%), linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 16%); }

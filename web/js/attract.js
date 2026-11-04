@@ -88,9 +88,9 @@ async function start() {
     const sys = store.systems[c.game.system];
     osdCh.textContent = `CH ${String((ch % channels.length) + 1).padStart(2, "0")}`;
     osdCh.classList.remove("blink"); void osdCh.offsetWidth; osdCh.classList.add("blink");
-    caption.replaceChildren(
+    caption.replaceChildren(...[
       c.game.box ? h("img.cap-box", { src: c.game.box, alt: "" }) : null,
-      h("div", h("div.cap-t", c.game.title), h("div.cap-s", [sys?.name, c.game.year].filter(Boolean).join(" · "))));
+      h("div", h("div.cap-t", c.game.title), h("div.cap-s", [sys?.name, c.game.year].filter(Boolean).join(" · ")))].filter(Boolean));
     playBtn.lastChild.textContent = c.game.resumable ? "Resume this" : "Play this";
     showFrame(c.frames[0].src);
   };
