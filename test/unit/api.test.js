@@ -220,3 +220,47 @@ test("kid mode limits consoles, and the parent PIN guards it", async () => {
   assert.equal((await post("/api/parent/pin", { pin: "9999", current: "0000" })).status, 403, "changing needs the current PIN");
   assert.equal((await j("/api/state")).body.settings.parentPin, undefined, "the PIN never leaves the server");
 });
+
+test("backlog status, in-progress fields, home slides and screensaver channels", async () => {
+  const games = (await j("/api/games")).body;
+  assert.ok(games.length >= 2);
+  const [g, other] = games;
+  assert.equal(g.status, null);
+  assert.equal(typeof g.resumable, "boolean");
+  assert.equal(typeof g.hasSave, "boolean");
+  assert.equal(typeof g.playCount, "number");
+  const set = (id, status) => j(`/api/games/${id}/status`, { method: "POST", body: JSON.stringify({ status }), headers: { "content-type": "application/json" } });
+  assert.equal((await set(g.id, "backlog")).body.status, "backlog");
+  assert.equal((await set(other.id, "nonsense")).body.status, null, "unknown statuses are cleared, not stored");
+  const after = (await j("/api/games")).body.find((x) => x.id === g.id);
+  assert.equal(after.status, "backlog");
+  // Starting a backlog game makes it "playing"; a beaten one stays beaten.
+  const before = after.playCount;
+  await j(`/api/games/${g.id}/start`, { method: "POST" });
+  const played = (await j("/api/games")).body.find((x) => x.id === g.id);
+  assert.equal(played.status, "playing");
+  assert.equal(played.playCount, before + 1);
+  await set(other.id, "beaten");
+  await j(`/api/games/${other.id}/start`, { method: "POST" });
+  assert.equal((await j("/api/games")).body.find((x) => x.id === other.id).status, "beaten");
+  // Home: status counts and the streak (same number as Stats).
+  const home = (await j("/api/home")).body;
+  assert.equal(home.stats.status.playing, 1);
+  assert.equal(home.stats.status.beaten, 1);
+  assert.equal(home.stats.streak, (await j("/api/stats")).body.streak);
+  assert.ok("todaysPick" in home && "forgotten" in home);
+  // Screensaver channels: only games with pictures, each with its frames.
+  app.db.run("UPDATE games SET art_box = 'box-test.png', art_snap = 'snap-test.png' WHERE id = ?", g.id);
+  const ch = (await j("/api/attract")).body;
+  const c = ch.find((x) => x.game.id === g.id);
+  assert.ok(c, "a game with art is a channel");
+  assert.deepEqual(c.frames.map((f) => f.kind), ["snap", ...(played.resumable ? ["resume"] : []), "box"], "a resume state adds where you left off");
+  assert.ok(ch.every((x) => x.frames.length > 0));
+  // "Favorites only" channels.
+  await j(`/api/games/${g.id}/favorite`, { method: "POST", body: JSON.stringify({ favorite: false }), headers: { "content-type": "application/json" } });
+  await j("/api/settings", { method: "PATCH", body: JSON.stringify({ saverChannels: "favorites" }), headers: { "content-type": "application/json" } });
+  assert.equal((await j("/api/attract")).body.length, 0, "no favorites with art yet");
+  await j(`/api/games/${g.id}/favorite`, { method: "POST", body: JSON.stringify({ favorite: true }), headers: { "content-type": "application/json" } });
+  assert.deepEqual((await j("/api/attract")).body.map((x) => x.game.id), [g.id]);
+  await j("/api/settings", { method: "PATCH", body: JSON.stringify({ saverChannels: "all" }), headers: { "content-type": "application/json" } });
+});

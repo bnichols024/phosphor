@@ -96,6 +96,10 @@ export function openDb(file) {
   for (const col of ["description TEXT", "desc_source TEXT", "desc_url TEXT", "rating REAL", "video_url TEXT", "manual_url TEXT", "info_checked INTEGER NOT NULL DEFAULT 0", "ra_hash TEXT"]) {
     try { db.exec(`ALTER TABLE games ADD COLUMN ${col}`); } catch { /* already there */ }
   }
+  // Per player: backlog status (playing | beaten | backlog | dropped).
+  for (const col of ["status TEXT"]) {
+    try { db.exec(`ALTER TABLE plays ADD COLUMN ${col}`); } catch { /* already there */ }
+  }
   const stmtCache = new Map();
   const prep = (sql) => {
     let s = stmtCache.get(sql);

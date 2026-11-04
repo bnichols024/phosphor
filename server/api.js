@@ -32,12 +32,35 @@ export function buildApi(ctx) {
   const slug = (s) => s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "game";
   const statesDir = (pid, gid) => path.join(paths.internal, "states", String(pid), String(gid));
 
-  const gameRow = (g, play) => ({
+  // `x` (from extrasFor): the player's resume states and saves, for "In progress" and friends.
+  const gameRow = (g, play, x = null) => ({
     id: g.id, system: g.system, title: g.custom_title || g.title, region: g.region, year: g.year, genre: g.genre,
     players: g.players, discs: g.discs, matched: !!g.matched,
     box: artUrl(g.art_box), snap: artUrl(g.art_snap), titleArt: artUrl(g.art_title), artChecked: !!g.art_checked,
     favorite: !!play?.favorite, lastPlayed: play?.last_played || null, seconds: play?.seconds || 0, addedAt: g.added_at,
+    playCount: play?.count || 0, status: play?.status || null,
+    ...(x ? { resumable: x.states.has(g.id), resumedAt: x.states.get(g.id) || null, hasSave: x.saves.has(g.id) } : {}),
   });
+  const extrasFor = (pid) => ({
+    states: new Map(db.all("SELECT game_id, created_at FROM states WHERE profile_id = ? AND slot = 0", pid).map((s) => [s.game_id, s.created_at])),
+    saves: new Set(db.all("SELECT game_id FROM saves WHERE profile_id = ?", pid).map((s) => s.game_id)),
+  });
+  const STATUSES = ["playing", "beaten", "backlog", "dropped"];
+  // Starting a game: play count and time, and a backlog game becomes "playing".
+  const markStarted = (pid, gid, now) => {
+    db.run(`INSERT INTO plays(profile_id, game_id, last_played, count) VALUES(?,?,?,1)
+      ON CONFLICT(profile_id, game_id) DO UPDATE SET last_played = excluded.last_played, count = count + 1`, pid, gid, now);
+    db.run("UPDATE plays SET status = 'playing' WHERE profile_id = ? AND game_id = ? AND status = 'backlog'", pid, gid);
+  };
+  // Consecutive days (ending today or yesterday) with more than 30 s of play.
+  const streakFor = (pid) => {
+    const daySet = new Set(db.all("SELECT DISTINCT CAST((started_at / 86400000) AS INTEGER) d FROM sessions WHERE profile_id = ? AND seconds > 30", pid).map((x) => x.d));
+    let streak = 0;
+    let d = Math.floor(Date.now() / 86400000);
+    if (!daySet.has(d)) d--;
+    while (daySet.has(d)) { streak++; d--; }
+    return streak;
+  };
 
   // Kid mode: a kid profile only sees the consoles a parent allowed (all, if none picked).
   const kidSystems = (profile) => {
@@ -74,7 +97,7 @@ export function buildApi(ctx) {
     });
   });
 
-  const DEFAULT_SETTINGS = { regionOrder: ["US", "World", "EU", "JP"], groupRegions: true, sounds: true, reduceMotion: false, screensaver: 5 };
+  const DEFAULT_SETTINGS = { regionOrder: ["US", "World", "EU", "JP"], groupRegions: true, sounds: true, reduceMotion: false, screensaver: 5, saverChannels: "all", saverClock: true };
   const settings = () => ({ ...DEFAULT_SETTINGS, ...db.getSetting("app", {}) });
   r.get("/api/settings", (req, res) => json(res, 200, { ...settings(), hasPin: !!db.getSetting("parentPin", null) }));
   r.patch("/api/settings", async (req, res) => {
@@ -155,7 +178,8 @@ export function buildApi(ctx) {
     const allowed = kidSystems(profile);
     let rows = db.all(`SELECT * FROM games WHERE ${where.join(" AND ")} ORDER BY sort_title`, ...args).filter((g) => !allowed || allowed.has(g.system));
     const plays = playsFor(profile.id);
-    let out = rows.map((g) => gameRow(g, plays.get(g.id)));
+    const x = extrasFor(profile.id);
+    let out = rows.map((g) => gameRow(g, plays.get(g.id), x));
     if (q.get("favorites") === "1") out = out.filter((g) => g.favorite);
     if (q.get("played") === "1") out = out.filter((g) => g.lastPlayed);
     const sort = q.get("sort") || "az";
@@ -177,7 +201,7 @@ export function buildApi(ctx) {
     const byId = new Map(rows.map((g) => [g.id, g]));
     const resumable = new Map(db.all("SELECT game_id, created_at FROM states WHERE profile_id = ? AND slot = 0", profile.id).map((s) => [s.game_id, s.created_at]));
     const recent = rows.filter((g) => g.lastPlayed).sort((a, b) => b.lastPlayed - a.lastPlayed).slice(0, 16).map((g) => ({
-      ...g, resumable: resumable.has(g.id),
+      ...g, resumable: resumable.has(g.id), resumedAt: resumable.get(g.id) || null,
       resumeThumb: resumable.has(g.id) ? `/api/games/${g.id}/states/0/thumb?profile=${profile.id}&t=${resumable.get(g.id)}` : null,
     }));
     const favorites = rows.filter((g) => g.favorite).sort((a, b) => a.title.localeCompare(b.title)).slice(0, 30);
@@ -189,10 +213,46 @@ export function buildApi(ctx) {
     const weekSeconds = db.get("SELECT IFNULL(SUM(seconds),0) s FROM sessions WHERE profile_id = ? AND started_at > ?", profile.id, week).s;
     const totalSeconds = db.get("SELECT IFNULL(SUM(seconds),0) s FROM plays WHERE profile_id = ?", profile.id).s;
     const top = db.all("SELECT game_id, seconds FROM plays WHERE profile_id = ? AND seconds > 0 ORDER BY seconds DESC LIMIT 1", profile.id)[0];
+    // Hero slides besides "continue": a pick for today and a favorite not played for a month.
+    const withArt = rows.filter((g) => g.box || g.snap);
+    const todaysPick = [...withArt].sort((a, b) => hash(`pick:${day}:${a.id}`) - hash(`pick:${day}:${b.id}`))[0] || null;
+    const forgotten = rows.filter((g) => g.favorite && (!g.lastPlayed || g.lastPlayed < Date.now() - 30 * 86400e3))
+      .sort((a, b) => hash(`fav:${day}:${a.id}`) - hash(`fav:${day}:${b.id}`))[0] || null;
+    const statusCounts = Object.fromEntries(STATUSES.map((s) => [s, rows.filter((g) => g.status === s).length]));
     json(res, 200, {
-      recent, favorites, added, rediscover: unplayed,
-      stats: { games: rows.length, weekSeconds, totalSeconds, topGame: top ? byId.get(top.game_id) || null : null, systems: new Set(rows.map((g) => g.system)).size },
+      recent, favorites, added, rediscover: unplayed, todaysPick, forgotten,
+      stats: { games: rows.length, weekSeconds, totalSeconds, topGame: top ? byId.get(top.game_id) || null : null, systems: new Set(rows.map((g) => g.system)).size,
+        streak: streakFor(profile.id), status: statusCounts },
     });
+  });
+
+  // Screensaver "channels": favorites, recent games and random games with art, each with the
+  // pictures to show (title screen, screenshot, box, the player's own screenshots, resume shot).
+  r.get("/api/attract", async (req, res) => {
+    const profile = profileOf(req);
+    const plays = playsFor(profile.id);
+    const locked = await library.lockedSystems();
+    const allowed = kidSystems(profile);
+    const x = extrasFor(profile.id);
+    const games = db.all("SELECT * FROM games WHERE missing_since IS NULL AND (art_snap IS NOT NULL OR art_title IS NOT NULL OR art_box IS NOT NULL)")
+      .filter((g) => !locked.has(g.system) && (!allowed || allowed.has(g.system)));
+    const onlyFavs = settings().saverChannels === "favorites";
+    const rows = games.map((g) => ({ g, row: gameRow(g, plays.get(g.id), x) })).filter((r) => !onlyFavs || r.row.favorite);
+    const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const favs = shuffle(rows.filter((r) => r.row.favorite));
+    const recent = rows.filter((r) => r.row.lastPlayed && !r.row.favorite).sort((a, b) => b.row.lastPlayed - a.row.lastPlayed).slice(0, 12);
+    const rest = shuffle(rows.filter((r) => !r.row.favorite && !recent.includes(r)));
+    const picked = shuffle([...favs.slice(0, 16), ...recent, ...rest].slice(0, 40));
+    json(res, 200, picked.map(({ g, row }) => ({
+      game: row,
+      frames: [
+        row.titleArt && { kind: "title", src: row.titleArt },
+        row.snap && { kind: "snap", src: row.snap },
+        ...listShots(profile, g).filter((s) => s.kind === "image").slice(0, 2).map((s) => ({ kind: "yours", src: s.url })),
+        row.resumable && { kind: "resume", src: `/api/games/${g.id}/states/0/thumb?profile=${profile.id}&t=${row.resumedAt}` },
+        row.box && { kind: "box", src: row.box },
+      ].filter(Boolean),
+    })));
   });
 
   r.get("/api/games/:id", (req, res, { id }) => {
@@ -304,6 +364,14 @@ export function buildApi(ctx) {
     const b = await readJson(req);
     db.run("INSERT INTO plays(profile_id, game_id, favorite) VALUES(?,?,?) ON CONFLICT(profile_id, game_id) DO UPDATE SET favorite = excluded.favorite", profile.id, g.id, b.favorite ? 1 : 0);
     json(res, 200, { favorite: !!b.favorite });
+  });
+  r.post("/api/games/:id/status", async (req, res, { id }) => {
+    const profile = profileOf(req);
+    const g = gameOr404(id);
+    const b = await readJson(req);
+    const status = STATUSES.includes(b.status) ? b.status : null;
+    db.run("INSERT INTO plays(profile_id, game_id, status) VALUES(?,?,?) ON CONFLICT(profile_id, game_id) DO UPDATE SET status = excluded.status", profile.id, g.id, status);
+    json(res, 200, { status });
   });
 
   r.post("/api/games/:id/refetch-art", (req, res, { id }) => {
@@ -471,8 +539,7 @@ export function buildApi(ctx) {
         saveDir: path.join(library.savesDir, safeProfile, emu.saveFolder),
       });
     } catch (e) { throw new HttpError(e.status || 500, e.message); }
-    db.run(`INSERT INTO plays(profile_id, game_id, last_played, count) VALUES(?,?,?,1)
-      ON CONFLICT(profile_id, game_id) DO UPDATE SET last_played = excluded.last_played, count = count + 1`, profile.id, g.id, now);
+    markStarted(profile.id, g.id, now);
     runner.current.session = Number(db.run("INSERT INTO sessions(profile_id, game_id, started_at, seconds) VALUES(?,?,?,0)", profile.id, g.id, now).lastInsertRowid);
     bus.emit("played", { id: g.id, profile: profile.id });
     bus.emit("native", runner.status());
@@ -511,8 +578,7 @@ export function buildApi(ctx) {
     const profile = profileOf(req);
     const g = gameOr404(id);
     const now = Date.now();
-    db.run(`INSERT INTO plays(profile_id, game_id, last_played, count) VALUES(?,?,?,1)
-      ON CONFLICT(profile_id, game_id) DO UPDATE SET last_played = excluded.last_played, count = count + 1`, profile.id, g.id, now);
+    markStarted(profile.id, g.id, now);
     const info = db.run("INSERT INTO sessions(profile_id, game_id, started_at, seconds) VALUES(?,?,?,0)", profile.id, g.id, now);
     bus.emit("played", { id: g.id, profile: profile.id });
     json(res, 200, { session: Number(info.lastInsertRowid) });
@@ -660,6 +726,13 @@ export function buildApi(ctx) {
   // ---- screenshots: real PNG files in Screenshots/<player>/<console>/ ----
   const shotDir = (profile, g) => path.join(library.shotsDir, profile.name.replace(/[^\w\- ]+/g, "").trim() || `Player ${profile.id}`, BY_ID[g.system].folder);
   const shotPrefix = (g) => (g.custom_title || g.title).replace(/[^\w\- ]+/g, "").trim().slice(0, 60) || `game-${g.id}`;
+  // A player's screenshots and clips of one game, newest first.
+  function listShots(profile, g) {
+    const dir = shotDir(profile, g);
+    let files = [];
+    try { files = fs.readdirSync(dir).filter((f) => f.startsWith(`${shotPrefix(g)} `) && /\.(png|webm|mp4)$/.test(f)); } catch { /* none yet */ }
+    return files.sort().reverse().map((f) => ({ name: f, kind: f.endsWith(".png") ? "image" : "video", url: `/api/games/${g.id}/screenshots/${encodeURIComponent(f)}?profile=${profile.id}`, at: fs.statSync(path.join(dir, f)).mtimeMs }));
+  }
   r.put("/api/games/:id/screenshots", async (req, res, { id }) => {
     const profile = profileOf(req);
     const g = gameOr404(id);
@@ -696,10 +769,7 @@ export function buildApi(ctx) {
   r.get("/api/games/:id/screenshots", (req, res, { id }) => {
     const profile = profileOf(req);
     const g = gameOr404(id);
-    const dir = shotDir(profile, g);
-    let files = [];
-    try { files = fs.readdirSync(dir).filter((f) => f.startsWith(`${shotPrefix(g)} `) && /\.(png|webm|mp4)$/.test(f)); } catch { /* none yet */ }
-    json(res, 200, files.sort().reverse().map((f) => ({ name: f, kind: f.endsWith(".png") ? "image" : "video", url: `/api/games/${g.id}/screenshots/${encodeURIComponent(f)}?profile=${profile.id}`, at: fs.statSync(path.join(dir, f)).mtimeMs })));
+    json(res, 200, listShots(profile, g));
   });
   r.get("/api/games/:id/screenshots/:name", (req, res, { id, name }) => {
     const profile = profileOf(req);
@@ -752,13 +822,7 @@ export function buildApi(ctx) {
     const top = db.all(`SELECT g.*, p.seconds, p.count, p.last_played, p.favorite FROM plays p JOIN games g ON g.id = p.game_id WHERE p.profile_id = ? AND p.seconds > 0 ORDER BY p.seconds DESC LIMIT 10`, profile.id)
       .map((g) => ({ ...gameRow(g, g), count: g.count }));
     const total = db.get("SELECT IFNULL(SUM(seconds),0) s, COUNT(*) n FROM plays WHERE profile_id = ? AND count > 0", profile.id);
-    // Day streak: consecutive days (ending today or yesterday) with any play.
-    const daySet = new Set(db.all("SELECT DISTINCT CAST((started_at / 86400000) AS INTEGER) d FROM sessions WHERE profile_id = ? AND seconds > 30", profile.id).map((x) => x.d));
-    let streak = 0;
-    let d = Math.floor(Date.now() / 86400000);
-    if (!daySet.has(d)) d--;
-    while (daySet.has(d)) { streak++; d--; }
-    json(res, 200, { days, bySystem, top, totalSeconds: total.s, gamesPlayed: total.n, streak });
+    json(res, 200, { days, bySystem, top, totalSeconds: total.s, gamesPlayed: total.n, streak: streakFor(profile.id) });
   });
 
   // ---- library management ----

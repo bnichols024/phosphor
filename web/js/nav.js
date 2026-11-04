@@ -7,6 +7,11 @@ let handlers = { back: () => history.back(), search: () => {}, section: () => {}
 export const setNavHandlers = (h) => { handlers = { ...handlers, ...h }; };
 let activityHook = () => {};
 export const onActivity = (fn) => { activityHook = fn; };
+// While something full-screen owns the controller (the screensaver), every new button press goes
+// to it ("a" or "other") instead of moving focus, going back, etc.
+let capture = null;
+let swallow = false; // after a capture ends, ignore the press that ended it until it's let go
+export const setCapture = (fn) => { if (capture && !fn) swallow = true; capture = fn; };
 
 function layerRoot() {
   const who = document.querySelector(".who");
@@ -125,6 +130,13 @@ function pollPads() {
     const ax = (i) => pads.reduce((acc, p) => (Math.abs(p.axes[i] || 0) > Math.abs(acc) ? p.axes[i] : acc), 0);
     const dirs = { up: b(12) || ax(1) < -0.6, down: b(13) || ax(1) > 0.6, left: b(14) || ax(0) < -0.6, right: b(15) || ax(0) > 0.6 };
     const any = Object.values(dirs).some(Boolean) || [0, 1, 2, 3, 4, 5, 8, 9].some(b);
+    if (swallow) { if (any) return; swallow = false; }
+    if (capture) {
+      // Fire once per press (no repeats), then swallow it.
+      const keys = { a: b(0), b: b(1), x: b(2), y: b(3), lb: b(4), rb: b(5), sel: b(8), start: b(9), ...Object.fromEntries(Object.entries(dirs).map(([k, v]) => [`d-${k}`, v])) };
+      for (const [k, on] of Object.entries(keys)) pressed(`cap-${k}`, on, now, () => capture?.(k === "a" ? "a" : "other"));
+      return;
+    }
     if (any) { setPadMode(true); activityHook(); }
     for (const [dir, on] of Object.entries(dirs)) pressed(`d-${dir}`, on, now, () => move(dir), true);
     pressed("a", b(0), now, () => {

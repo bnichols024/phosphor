@@ -1,23 +1,42 @@
-import { store } from "../store.js";
+import { store, go } from "../store.js";
+import { api } from "../api.js";
 import { h, ic, plural, sheet } from "../ui.js";
+import { gameBrowser } from "../browse.js";
 import { sysCard } from "./home.js";
 import { freeGamesSheet } from "../freegames.js";
 
 const KIND_LABEL = { console: "Home consoles", handheld: "Handhelds", arcade: "Arcade", computer: "Computers" };
 
-export default async function library() {
+// Library: every console (Consoles) or every game across them with filters (Games). The last
+// one used opens next time.
+const VIEW_KEY = "phosphor.library.view";
+
+export default async function library({ query = {} } = {}) {
   const all = store.systemList;
   const withGames = all.filter((s) => s.count > 0);
   const ready = all.filter((s) => s.count === 0 && !s.locked);
   const total = withGames.reduce((a, s) => a + s.count, 0);
+  const view = query.view || localStorage.getItem(VIEW_KEY) || "consoles";
+  localStorage.setItem(VIEW_KEY, view);
+  const switcher = h("div.segmented.lib-switch",
+    h("button", { "data-nav": "", class: view === "consoles" ? "on" : "", onclick: () => view !== "consoles" && go("/library?view=consoles") }, ic("layers"), "Consoles"),
+    h("button", { "data-nav": "", class: view === "games" ? "on" : "", onclick: () => view !== "games" && go("/library?view=games") }, ic("library"), "Games"));
+  const head = h("div.page-head",
+    h("div.grow", h("div.eyebrow", "Library"), h("h1", total ? plural(total, "game") : "Your consoles"),
+      h("div.sub", view === "games" ? `Every game on ${plural(withGames.length, "console")}.` : `${withGames.length} of ${all.filter((s) => !s.locked).length} consoles have games. Every emulator is already installed.`)),
+    switcher,
+    h("button.btn", { "data-nav": "", onclick: () => freeGamesSheet() }, ic("gift"), "Free games"),
+    h("button.btn", { "data-nav": "", onclick: () => folderSheet() }, ic("folder"), "Where do games go?"),
+    h("button.btn.primary", { "data-nav": "", onclick: () => window.phosphor.pickFiles() }, ic("upload"), "Add games"));
 
-  const el = h("div.page",
-    h("div.page-head",
-      h("div.grow", h("div.eyebrow", "Library"), h("h1", total ? plural(total, "game") : "Your consoles"),
-        h("div.sub", `${withGames.length} of ${all.filter((s) => !s.locked).length} consoles have games. Every emulator is already installed.`)),
-      h("button.btn", { "data-nav": "", onclick: () => freeGamesSheet() }, ic("gift"), "Free games"),
-      h("button.btn", { "data-nav": "", onclick: () => folderSheet() }, ic("folder"), "Where do games go?"),
-      h("button.btn.primary", { "data-nav": "", onclick: () => window.phosphor.pickFiles() }, ic("upload"), "Add games")));
+  if (view === "games" && total) {
+    const games = await api.get("/api/games");
+    const browser = gameBrowser({ games, key: "games", query });
+    const el = h("div", h("div.page", { style: { paddingBottom: 0 } }, head), browser.toolbar, browser.body);
+    return { el, title: "Games", destroy: browser.destroy };
+  }
+
+  const el = h("div.page", head);
 
   if (withGames.length) {
     el.append(h("div.sys-section", h("div.systems", withGames.sort((a, b) => b.count - a.count).map(sysCard))));

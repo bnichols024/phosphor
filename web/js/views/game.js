@@ -2,6 +2,7 @@ import { api } from "../api.js";
 import { store, go } from "../store.js";
 import { h, ic, consoleArt, fmtTime, timeAgo, fmtBytes, toast, toastError, sheet, confirmBox, promptBox, imageColor, setAmbient, hexToRgb } from "../ui.js";
 import { sound } from "../sound.js";
+import { toggleFavorite, statusChips, shelfSheet, onGameChange } from "../actions.js";
 
 export default async function gameView({ params }) {
   const g = await api.get(`/api/games/${params.id}`);
@@ -22,13 +23,13 @@ export default async function gameView({ params }) {
     boxEl.append(h("div.cover-gen", { "--sys": sys.color }, consoleArt(sys), h("div.t", g.title), h("div.s", sys.short)));
   }
 
-  const favBtn = h("button.btn.big.icon", { "data-nav": "", "aria-label": "Favorite", class: g.favorite ? "on" : "", onclick: async () => {
-    g.favorite = !g.favorite;
+  const favBtn = h("button.btn.big.icon", { "data-nav": "", "aria-label": "Favorite", class: g.favorite ? "on" : "", onclick: () => toggleFavorite(g) }, ic(g.favorite ? "heartFill" : "heart"));
+  const offFav = onGameChange((id, patch) => {
+    if (id !== g.id || !("favorite" in patch)) return;
+    if (!favBtn.isConnected) return offFav();
     favBtn.replaceChildren(ic(g.favorite ? "heartFill" : "heart"));
     favBtn.classList.toggle("on", g.favorite);
-    sound.play(g.favorite ? "success" : "back");
-    await api.post(`/api/games/${g.id}/favorite`, { favorite: g.favorite }).catch(toastError);
-  } }, ic(g.favorite ? "heartFill" : "heart"));
+  });
 
   const meta = [
     h("span.chip.solid", sys.short),
@@ -61,6 +62,7 @@ export default async function gameView({ params }) {
         h("h1", g.title),
         h("div.meta", meta),
         actions,
+        h("div.status-row", h("span.status-label", "My status"), statusChips(g)),
         locked ? h("div.note", { style: { marginTop: "16px", maxWidth: "640px" } }, ic("lock"), h("div", `Drop ${sys.biosFiles[0]?.name || "the BIOS"} into the BIOS folder to unlock ${sys.short} games.`)) : null)));
 
   // About: description (with its source), rating, gameplay video, manual.
@@ -142,31 +144,6 @@ export default async function gameView({ params }) {
 }
 
 const kv = (k, v) => h("div", h("dt", k), h("dd", v));
-
-async function shelfSheet(g) {
-  const cols = await api.get("/api/collections");
-  const fresh = await api.get(`/api/games/${g.id}`);
-  const has = new Set(fresh.collections.filter((c) => c.has).map((c) => c.id));
-  const body = h("div.list",
-    cols.map((c) => {
-      const item = h("button.list-item", { "data-nav": "", onclick: async () => {
-        const on = !has.has(c.id);
-        await api.post(`/api/collections/${c.id}/games`, { gameId: g.id, remove: !on });
-        on ? has.add(c.id) : has.delete(c.id);
-        item.querySelector(".mark").replaceChildren(on ? ic("check") : "");
-        toast({ title: on ? `Added to ${c.name}` : `Removed from ${c.name}`, icon: "layers" });
-      } }, ic("layers"), h("div.grow", h("div.t", c.name), h("div.d", `${c.count} games`)), h("span.mark", has.has(c.id) ? ic("check") : ""));
-      return item;
-    }),
-    h("button.list-item", { "data-nav": "", onclick: async () => {
-      s.close();
-      const name = await promptBox("New shelf", { placeholder: "Couch co-op, RPG marathon…", ok: "Create" });
-      if (!name) return;
-      await api.post("/api/collections", { name, gameId: g.id });
-      toast({ title: `Created ${name}`, text: `${g.title} is on it.`, icon: "layers", kind: "good" });
-    } }, ic("plus"), h("div.grow", h("div.t", "New shelf…"))));
-  const s = sheet({ title: "Add to a shelf", sub: "Shelves are your own collections, like playlists for games.", body, actions: [{ label: "Done", kind: "primary" }] });
-}
 
 function moreSheet(g) {
   const s = sheet({

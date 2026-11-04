@@ -1,6 +1,7 @@
 // UI toolkit: element builder, toasts, sheets, game cards, colour extraction, formatting.
 import { icon, consoleIcon } from "./icons.js";
 import { sound } from "./sound.js";
+import { STATUS, playGame, toggleFavorite, cardMenu, onGameChange } from "./actions.js";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -124,7 +125,12 @@ export function sheet({ title, sub, body, actions = [], wide = false, onClose })
   ov.addEventListener("click", (e) => { if (e.target === ov) close(undefined); });
   document.body.append(ov);
   sheetStack.push(close);
-  setTimeout(() => (box.querySelector("[autofocus]") || box.querySelector("input, .btn.primary, .btn.accent, [data-nav], button"))?.focus(), 30);
+  // Focus without scrolling: in a long sheet the first button is often at the very end, and
+  // focusing it would open the sheet scrolled to the bottom.
+  setTimeout(() => {
+    (box.querySelector("[autofocus]") || box.querySelector("input, .btn.primary, .btn.accent, [data-nav], button"))?.focus({ preventScroll: true });
+    box.scrollTop = 0;
+  }, 30);
   return { el: box, close, done };
 }
 export const closeTopSheet = () => { const c = sheetStack[sheetStack.length - 1]; if (c) { c(undefined); return true; } return false; };
@@ -230,19 +236,58 @@ export function gameCard(game, { systems, onOpen, ratio, showSystem = true, resu
   } else {
     art.append(genCover(game, sys));
   }
-  const badges = h("div.badges",
-    game.region && game.region !== "US" && game.region !== "World" ? h("span.region", game.region) : null,
-    h("div.right", game.favorite ? h("span.fav", ic("heartFill")) : null));
-  art.append(badges, h("div.play-hint", h("span", ic("play"))));
+  const right = h("div.right");
+  const drawBadges = () => right.replaceChildren(
+    game.status && STATUS[game.status] ? h("span.st", { "--st": STATUS[game.status].color, title: STATUS[game.status].label }, ic(STATUS[game.status].icon)) : "",
+    game.favorite ? h("span.fav", ic("heartFill")) : "");
+  drawBadges();
+  const badges = h("div.badges", game.region && game.region !== "US" && game.region !== "World" ? h("span.region", game.region) : null, right);
+  // The round button in the middle plays straight away; anywhere else opens the game's page.
+  const playBtn = h("span.gc-play", { title: game.resumable ? "Resume" : "Play" }, ic(game.resumable ? "resume" : "play"));
+  art.append(badges, h("div.play-hint", playBtn));
   if (resumable) art.append(h("div.resume", ic("resume"), game.lastPlayed ? `Resume · ${timeAgo(game.lastPlayed)}` : "Resume"));
   const sub = [showSystem ? sys?.short : null, game.year].filter(Boolean).join(" · ") || (game.genre || "");
   const card = h("button.gcard", {
     "data-nav": "", "data-game-id": game.id, "--ar": ratio || 0.75, "aria-label": game.title,
-    onclick: () => { sound.play("select"); onOpen ? onOpen(game) : location.assign(`/game/${game.id}`); },
+    onclick: (e) => {
+      if (e.target.closest(".gc-play")) return playGame(game);
+      sound.play("select"); onOpen ? onOpen(game) : location.assign(`/game/${game.id}`);
+    },
+    oncontextmenu: (e) => { e.preventDefault(); cardMenu(game, e.clientX, e.clientY); },
+    onkeydown: (e) => { if ((e.key === "f" || e.key === "F") && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleFavorite(game); } },
   }, art, h("div.gcard-meta", h("span.gcard-title", game.title), h("span.gcard-sub", sub)));
+  card.game = game; // the controller's Y (play) and the hint bar read it
+  card.addEventListener("pad-x", (e) => { e.stopPropagation(); toggleFavorite(game); });
+  const off = onGameChange((id) => { if (id !== game.id) return; if (!card.isConnected) return off(); drawBadges(); });
   if (sys) card.style.setProperty("--glow-rgb", hexToRgb(sys.color).join(","));
   attachTilt(card, art);
+  attachPreview(card, art, game);
   return card;
+}
+
+// After a moment of hover or focus, the card crossfades through the game's screenshots.
+function attachPreview(card, art, game) {
+  const frames = [game.snap, game.titleArt].filter(Boolean);
+  if (!frames.length) return;
+  let wait = null, timer = null, img = null, i = 0;
+  const stop = () => {
+    clearTimeout(wait); clearInterval(timer); wait = timer = null;
+    if (img) { img.classList.remove("on"); const old = img; setTimeout(() => old.remove(), 400); img = null; }
+  };
+  const start = () => {
+    if (wait || timer || document.body.classList.contains("reduce-motion")) return;
+    wait = setTimeout(() => {
+      img = h("img.gc-preview", { src: frames[0], alt: "", draggable: "false" });
+      art.insertBefore(img, art.querySelector(".badges"));
+      requestAnimationFrame(() => img?.classList.add("on"));
+      i = 0;
+      if (frames.length > 1) timer = setInterval(() => { if (img) img.src = frames[++i % frames.length]; }, 1600);
+    }, 600);
+  };
+  card.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") start(); });
+  card.addEventListener("pointerleave", stop);
+  card.addEventListener("focus", () => { if (document.body.classList.contains("pad")) start(); });
+  card.addEventListener("blur", stop);
 }
 
 // Gentle 3D tilt + glare that follows the pointer (mouse only).

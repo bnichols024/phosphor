@@ -3,6 +3,7 @@ import { store, go, refreshState } from "../store.js";
 import { h, ic, toast, toastError, sheet, confirmBox, promptBox, timeAgo, plural, desktopLink, confirmRollback } from "../ui.js";
 import { sound } from "../sound.js";
 import { updates, watchUpdates } from "../update.js";
+import { startScreensaver } from "../attract.js";
 import { ACTIONS, DEFAULTS, POSITIONAL, PAD_BUTTONS, padName, keyName, layoutFor } from "../controls.js";
 
 const SECTIONS = [
@@ -514,7 +515,11 @@ async function general(root) {
   h("div.card", h("h3", "Screensaver"),
     h("div.setting", h("div.grow", h("div.t", "Attract mode"), h("div.d", "When nobody's touched anything for a while, show your games like an arcade cabinet")),
       h("label.field", { style: { width: "170px" } }, h("select", { onchange: (e) => saveSettings({ screensaver: Number(e.target.value) }) },
-        [[0, "Off"], [2, "After 2 min"], [5, "After 5 min"], [10, "After 10 min"], [30, "After 30 min"]].map(([v, l]) => h("option", { value: v, selected: (store.settings.screensaver ?? 5) === v }, l)))))),
+        [[0, "Off"], [2, "After 2 min"], [5, "After 5 min"], [10, "After 10 min"], [30, "After 30 min"]].map(([v, l]) => h("option", { value: v, selected: (store.settings.screensaver ?? 5) === v }, l))))),
+    h("div.setting", h("div.grow", h("div.t", "Channels"), h("div.d", "Which games it flips through, like channels on an old TV")),
+      segmented([["all", "Everything"], ["favorites", "Favorites only"]], store.settings.saverChannels || "all", (v) => saveSettings({ saverChannels: v }))),
+    h("div.setting", h("div.grow", h("div.t", "Show the clock")), toggle(store.settings.saverClock !== false, (v) => saveSettings({ saverClock: v }))),
+    h("div", { style: { marginTop: "12px" } }, h("button.btn", { "data-nav": "", onclick: () => startScreensaver() }, ic("play"), "Try it now"))),
   h("div.card", h("h3", "Parent PIN"),
     h("p", store.settings.hasPin ? "A PIN is set. Kids need it to switch to a grown-up player." : "Set a 4-digit PIN so kids in Kid mode can't switch to grown-up players (set Kid mode in Players)."),
     h("div", { style: { display: "flex", gap: "10px", flexWrap: "wrap" } },
@@ -586,6 +591,14 @@ async function photoCredits() {
       h("div.grow", h("div.t", c.name || store.systems[id]?.name || id), h("div.d", `${c.artist} · ${c.license}`))))) });
 }
 const credit = (name, text, href) => h("a.list-item", { href, target: "_blank", rel: "noopener", "data-nav": "" }, ic("info"), h("div.grow", h("div.t", name), h("div.d", text)));
+
+// A row of pad-friendly choice buttons (one on at a time).
+function segmented(options, current, change) {
+  const wrap = h("div.segmented");
+  const draw = () => wrap.replaceChildren(...options.map(([v, label]) => h("button", { "data-nav": "", class: v === current ? "on" : "", onclick: () => { current = v; sound.play("move"); draw(); change(v); } }, label)));
+  draw();
+  return wrap;
+}
 
 function toggle(on, change) {
   const sw = h("button.switch", { "data-nav": "", role: "switch", "aria-checked": String(!!on), class: on ? "on" : "", onclick: () => {

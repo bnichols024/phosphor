@@ -1,12 +1,14 @@
 // App shell: router, navigation rail, live server events, drag-and-drop uploads, player picker.
 import { api, setProfile, getProfile } from "./api.js";
 import { store, refreshState } from "./store.js";
-import { h, $, $$, ic, svg, toast, toastError, sheet, closeTopSheet, sheetOpen, plural, setAmbient, setAccent, fmtBytes, promptBox, imageColor } from "./ui.js";
+import { h, $, $$, ic, svg, toast, toastError, sheet, closeTopSheet, sheetOpen, plural, setAmbient, setAccent, fmtBytes, promptBox } from "./ui.js";
 import { LOGO } from "./icons.js";
-import { initNav, setNavHandlers, focusables, focusEl, onActivity } from "./nav.js";
+import { initNav, setNavHandlers, focusables, focusEl } from "./nav.js";
 import { sound } from "./sound.js";
 import { freeGamesSheet } from "./freegames.js";
 import { initUpdates } from "./update.js";
+import { playGame } from "./actions.js";
+import { initScreensaver } from "./attract.js";
 
 const ROUTES = [
   { re: /^\/$/, view: () => import("./views/home.js"), nav: "home" },
@@ -126,7 +128,7 @@ function buildShell() {
   const shell = h("div.shell", rail, h("main#view"));
   document.body.prepend(h("div#ambient", h("div.blob.b1"), h("div.blob.b2"), h("div.blob.b3")), shell,
     h("div#dropzone", h("div.ring", h("div", ic("upload"), h("h2", "Drop to add games"), h("p", "Any console, zipped or not. Phosphor sorts them for you.")))),
-    h("div#hints", h("span", h("kbd.a", "A"), "Select"), h("span", h("kbd.b", "B"), "Back"), h("span", h("kbd.x", "X"), "Favorite"), h("span", h("kbd.y", "Y"), "Search"), h("span", h("kbd", "LB/RB"), "Sections")),
+    h("div#hints", h("span", h("kbd.a", "A"), "Select"), h("span", h("kbd.b", "B"), "Back"), h("span", h("kbd.x", "X"), "Favorite"), h("span", h("kbd.y", "Y"), h("span#hint-y", "Search")), h("span", h("kbd", "LB/RB"), "Sections")),
     h("input#file-input", { type: "file", multiple: true, hidden: true, onchange: (e) => { uploadFiles([...e.target.files].map((f) => ({ file: f, path: f.name }))); e.target.value = ""; } }),
     // Whole folders keep their layout (multi-file and folder games stay together).
     h("input#folder-input", { type: "file", multiple: true, hidden: true, webkitdirectory: true, onchange: (e) => { uploadFiles([...e.target.files].map((f) => ({ file: f, path: f.webkitRelativePath || f.name }))); e.target.value = ""; } }));
@@ -426,58 +428,26 @@ async function runUploads() {
   setTimeout(() => panel.remove(), 5000);
 }
 
-// ---------- attract mode (screensaver) ----------
-let lastActivity = Date.now();
-let saver = null;
-function activity() {
-  lastActivity = Date.now();
-  if (saver) stopSaver();
-}
-function initScreensaver() {
-  for (const ev of ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"]) window.addEventListener(ev, activity, { passive: true, capture: true });
-  onActivity(activity);
-  setInterval(() => {
-    const mins = store.settings.screensaver ?? 5;
-    if (!mins || saver || document.hidden || sheetOpen() || $("#dropzone.on") || $(".uploads")) return;
-    if (Date.now() - lastActivity > mins * 60000) startSaver();
-  }, 5000);
-}
-async function startSaver() {
-  const games = (await api.get("/api/games").catch(() => [])).filter((g) => g.snap || g.titleArt || g.box);
-  if (!games.length || saver) return;
-  for (let i = games.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [games[i], games[j]] = [games[j], games[i]]; }
-  const el = h("div#saver", h("div.saver-hint", "Press any button"));
-  document.body.append(el);
-  let i = 0;
-  const show = () => {
-    const g = games[i++ % games.length];
-    const sys = store.systems[g.system];
-    const src = g.snap || g.titleArt || g.box;
-    const slide = h("div.slide", h("div.sbg", { style: { backgroundImage: `url("${src}")` } }), h("img.shot", { src, alt: "" }),
-      h("div.cap", g.box ? h("img.box", { src: g.box, alt: "" }) : null, h("div", h("div.sys", sys?.name || ""), h("div.t", g.title), g.year ? h("div.y", String(g.year)) : null)));
-    const img = slide.querySelector("img.shot");
-    img.addEventListener("load", () => { const c = imageColor(img); if (c) setAmbient([c, sys?.color || "#4b2fd6", "#0b0c12"]); }, { once: true });
-    el.append(slide);
-    requestAnimationFrame(() => slide.classList.add("in"));
-    const old = el.querySelectorAll(".slide");
-    if (old.length > 2) old[0].remove();
-  };
-  show();
-  saver = { el, timer: setInterval(show, 8000) };
-}
-function stopSaver() {
-  clearInterval(saver.timer);
-  saver.el.remove();
-  saver = null;
-}
+// ---------- attract mode (screensaver): web/js/attract.js ----------
 
 // ---------- boot ----------
 async function boot() {
   buildShell();
   initNav();
+  // The hint bar's Y label follows what's focused (a game card: Play / Resume).
+  document.addEventListener("focusin", (e) => {
+    const g = e.target.closest?.(".gcard")?.game;
+    const el = $("#hint-y");
+    if (el) el.textContent = g ? (g.resumable ? "Resume" : "Play") : "Search";
+  });
   setNavHandlers({
     back: () => { if (closeTopSheet()) return; if (document.querySelector(".who")) return; if (location.pathname !== "/") history.back(); },
-    search: () => { if (!sheetOpen()) navigate("/search"); },
+    // Y on a game card plays it; anywhere else it's Search.
+    search: () => {
+      const card = document.activeElement?.closest?.(".gcard");
+      if (card?.game && !sheetOpen()) return playGame(card.game);
+      if (!sheetOpen()) navigate("/search");
+    },
     section: (dir) => {
       const ids = NAV.map((n) => n.id);
       const cur = $(".rail-btn.active")?.dataset.id || "home";

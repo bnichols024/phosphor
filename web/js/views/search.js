@@ -1,7 +1,7 @@
 import { api } from "../api.js";
 import { store, go } from "../store.js";
 import { h, ic, gameCard, plural } from "../ui.js";
-import { groupVariants } from "./system.js";
+import { groupVariants } from "../browse.js";
 
 export default async function search({ query }) {
   const all = await api.get("/api/games");
